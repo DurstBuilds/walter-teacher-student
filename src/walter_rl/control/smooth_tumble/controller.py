@@ -1,7 +1,7 @@
 """PD loops that fill the Walter action vector, with level hips while tumbling.
 
 Hips, knees, and wheels use the same action terms as the velocity task.
-The waist term exists only on the PD environment and is held at zero.
+``head_joint`` is fixed at 0 degrees and is not an action.
 While the knees tumble or settle, the hips hold a flat-ground contact
 height instead of zeroing torso pitch.
 """
@@ -82,7 +82,7 @@ class SmoothTumbleController:
     self._right_thighs = _body_ids(robot, _RIGHT_THIGHS, device)
     self._left_wheels = _wheel_columns(robot, columns, "left", device)
     self._right_wheels = _wheel_columns(robot, columns, "right", device)
-    self._waist_column = columns[_WAIST]
+    self._waist_column = columns.get(_WAIST)
     self._knee_scale = _knee_position_scale(env)
     self._knee_ids = torch.cat((self._left_knees.ids, self._right_knees.ids))
     self._knee_columns = torch.cat(
@@ -132,7 +132,8 @@ class SmoothTumbleController:
     self._apply_tumble(actions, robot)
     self._apply_pitch(actions, robot)
     self._apply_wheels(actions, robot)
-    actions[:, self._waist_column] = 0.0
+    if self._waist_column is not None:
+      actions[:, self._waist_column] = 0.0
     return actions
 
   def _sync_knee_servo(self) -> None:

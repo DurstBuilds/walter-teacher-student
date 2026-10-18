@@ -1,0 +1,321 @@
+% Living draft. Numbers come from research/journal/LOG.md,
+% research/logs/analysis/BASELINE_REVIEW.md,
+% research/logs/analysis/CYCLE1_REVIEW.md,
+% research/logs/analysis/CYCLE2_REVIEW.md, and
+% research/logs/analysis/CYCLE3_REVIEW.md.
+% This is cycle 3 of an unfinished study. The goal checks have not passed.
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+\usepackage[backend=biber,style=authoryear]{biblatex}
+\addbibresource{references.bib}
+
+\title{Teacher-Student Learning of a Predictive Locomotion Policy from a Reactive Controller}
+\author{WaLTER predictive-policy project}
+\date{Draft, 14 October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The full-body PD controller on WaLTER~FS is a reactive teacher: it tumbles only after a speed-lag integral crosses a gate, and it does not read \texttt{terrain\_scan}.
+The student observes a torso height scan.
+Cycle~3 changed the predictive knee term so a forward command and an open scan gate still pay when measured speed is at or below zero, and so a downward step opens the same \(0.04\,\mathrm{m}\) to \(0.08\,\mathrm{m}\) gate as an upward step.
+Training then continued from the cycle-2 checkpoint for 500 further iterations at seed 42 with 2048 environments.
+The resulting policy keeps flat knee rates near zero (means \(0.016\) and \(0.014\,\mathrm{rad/s}\)) and flat speed near the \(1\,\mathrm{m/s}\) command (mean \(1.027\,\mathrm{m/s}\) on both difficulties).
+That is about \(0.33\,\mathrm{m/s}\) faster than the PD cruise of \(0.697\,\mathrm{m/s}\), which is the PD undershoot and is not scored as a flat failure.
+Hard pyramid stairs are cleared by pitching.
+Hard inverted stairs and the hard box grid both start the knees earlier than the PD, and neither cell is cleared.
+A scan ablation on hard pyramid stairs moves knee-rate onset from \(0.680\,\mathrm{m}\) to never.
+One seed was trained, so two-seed agreement is not met.
+This is cycle~3 of an unfinished study.
+The goal checks have not passed.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:introduction}
+
+WaLTER~FS is trained by pairing a full-body PD controller with a student policy.
+The PD is a reactive teacher.
+It pitches, rolls, drives, and tumbles from body state and the velocity command.
+Tumbling starts after a speed-lag integral crosses a threshold.
+The PD never reads \texttt{terrain\_scan}.
+
+The student observation includes a torso height scan the PD does not read.
+A student can raise reward by cloning the PD and ignoring that scan.
+The result this paper is set up to test is a policy that matches the PD on flat ground---upright, wheel-driven, knees quiet---and that tumbles earlier than the PD when the forward scan shows stairs or broken ground.
+
+Cycle~0 recorded the PD on one cell at a time.
+Those clips are the reference, because the previous teacher checkpoint does not load into the current 16-action, 383-observation environment.
+Cycle~1 is the first training run of the gated objective.
+Cycle~2 left that gate in place and continued the same seed.
+Cycle~3 changed the stall scale and counted drops in the step measure, then continued again from the cycle-2 checkpoint.
+None of the cycles passes the goal checks.
+Two seeds have not been compared.
+This draft reports that unfinished study.
+It does not claim the result.
+
+\section{Related Work}
+\label{sec:related}
+
+The usual teacher--student split gives the teacher more information than the student.
+\textcite{lee2020quadrupedal} train a privileged teacher in simulation and imitate it with a blind student.
+\textcite{chen2020learning} use the same pattern for driving: a privileged agent sees the layout, and a vision-only student copies it.
+\textcite{miki2022perceptive} keep a privileged teacher and give the student a height map, so the perceptive policy can lift a foot before contact while a proprioceptive policy adapts only after the step is hit.
+\textcite{ross2011dagger} is the reduction that makes that imitation on-policy.
+None of those teachers is the worse-informed policy.
+Here the PD sees less than the student, and copying it on the approach to a step is the failure mode.
+
+\textcite{rajeswaran2018dapg} keep the task return and use demonstrations as an auxiliary.
+\textcite{zhang2021cail} down-weight imitation where the demonstrator is a poor match to the task.
+That is the reason the match to the PD is a function of the forward scan rather than a constant label.
+\textcite{kumar2021rma} estimate privileged factors from proprioceptive history after contact; the scan is already in the observation, and a latent of that kind is not used.
+\textcite{johannink2019residual} add a learned residual on a hand-designed controller.
+Residual actions were not used in cycles~1, 2, or~3.
+\textcite{rudin2022walk} is the citation for massively parallel PPO on a terrain curriculum, which is the training regime, not a new reward.
+\textcite{lee2024wheeled} show wheel driving on flat ground and a legged gait on mapped obstacles for a wheeled-legged robot.
+Their teacher still has the cleaner map, and the obstacle gait is a walk rather than this knee tumble.
+
+\section{WaLTER FS and the Reactive PD}
+\label{sec:walter}
+
+The teacher is the full-body PD controller.
+It commands pitch, roll, drive, and tumble from body state and the commanded velocity.
+It does not read \texttt{terrain\_scan}.
+The tumble is gated by speed lag.
+Until that gate opens, the PD keeps driving the wheels.
+
+On the cycle~0 clips the flat PD holds about \(0.697\,\mathrm{m/s}\) with quiet knees and the gate off, and travels \(5.536\,\mathrm{m}\) in \(8\,\mathrm{s}\).
+The command is \(1\,\mathrm{m/s}\).
+Hard pyramid stairs are crossed by pitching.
+The gate stays off, and the clip ends at \(5.492\,\mathrm{m}\) back on the flat cruise.
+Hard inverted stairs open the gate at \(0.909\,\mathrm{m}\), after speed has already fallen, and the cell is not cleared (end distance \(2.929\,\mathrm{m}\)).
+Hard box grid opens the gate at \(0.903\,\mathrm{m}\), again after speed has fallen, and ends at \(1.603\,\mathrm{m}\) tipped over (uprightness \(0.664\)).
+Knee targets on those latched clips wind to about \(19\,\mathrm{rad}\).
+
+The student sees the same body and command channels plus the height scan.
+That scan is the only terrain channel that can move the action before the speed-lag gate would open.
+Training terrain for cycles~1 through~3 was the existing \texttt{rough-test} mix.
+The mix was not changed.
+
+\section{Training Method}
+\label{sec:method}
+
+Cycle~1 trained the teacher environment with PPO.
+The objective is the scan-gated match to the PD plus a predictive knee-tumble term, as specified in the method note, together with the existing task rewards.
+The match stays on when the forward scan does not show a step, and it turns off when the forward height profile shows one.
+Through cycle~2 the step measure was the largest upward jump between consecutive occupied forward bins, so a downward face did not open it.
+Cycle~3 uses the largest absolute jump, up or down.
+The \(0.04\,\mathrm{m}\) to \(0.08\,\mathrm{m}\) ramp was not changed.
+The predictive term pays for knee rate in the direction of the command, and it does not wait for the speed-lag integral.
+Through cycle~2 that term was also multiplied by positive body speed, so a stall zeroed it.
+Cycle~3 still pays when the forward command is active and the scan gate is open, even if measured speed along the command is at or below zero.
+A flat scan keeps the gate shut.
+The lag term is still present at its existing weight as a recovery signal.
+Training did not use the teacher-only reward.
+Residual actions were not implemented.
+The scan size and the \texttt{rough-test} mix were not changed.
+All three runs are seed 42 only.
+
+The cycle-1 command that finished was
+\begin{quote}
+\texttt{uv run python scripts/train.py --teacher --task rough-test --num-envs 2048 --max-iterations 500}
+\end{quote}
+An attempt with 4096 environments failed to allocate \(6366953472\) bytes on the GPU and was discarded.
+A two-iteration smoke test with 8 environments exited 0 before that long run.
+That checkpoint is \texttt{model\_499.pt} under \texttt{research/logs/training/walter\_fs\_teacher\_rough-test/2026-10-13\_23-32-02/}.
+
+Cycle~2 tested the idea that hard inverted stairs are a downward face, so the upward-only step never opens the predictive term.
+The cycle-1 forward-scan clearance falls before the stall, which is less air and therefore higher terrain, not a drop.
+A probe of the hard inverted cell reads a \(+0.180\,\mathrm{m}\) riser, match gate 0, and tumble gate 1 from the first frame.
+The same probe on hard pyramid stairs reads step \(0.000\,\mathrm{m}\) and tumble gate 0, because that spawn is the top platform and the face ahead goes down.
+The gate already opens on the cell that failed, and the cycle-1 policy still moved its knees late.
+The gate was left unchanged, and training resumed:
+\begin{quote}
+\texttt{uv run python scripts/train.py --teacher --task rough-test --num-envs 2048 --max-iterations 500 --resume research/logs/training/walter\_fs\_teacher\_rough-test/2026-10-13\_23-32-02/model\_499.pt}
+\end{quote}
+The cycle-2 checkpoint is \texttt{model\_998.pt} under \texttt{research/logs/training/walter\_fs\_teacher\_rough-test/2026-10-14\_00-33-54/}.
+The file's iteration field is 998, the last of 500 additional updates (iterations 499 through 998).
+
+Cycle~3 tested the cycle-2 inverted-stair frames before editing.
+Knee rate there crosses \(1\,\mathrm{rad/s}\) at \(0.832\,\mathrm{m}\) while speed is still \(1.050\,\mathrm{m/s}\), so speed does not go negative before the first spin.
+Forward-scan height is already \(0.222\,\mathrm{m}\) at \(0.361\,\mathrm{m}\) of travel, against a flat cruise of \(0.255\,\mathrm{m}\) in that run, so a step is in the scan before the stall.
+Speed then reaches \(-0.001\,\mathrm{m/s}\) at \(0.932\,\mathrm{m}\) with knee rate already \(2.257\,\mathrm{rad/s}\).
+The old speed factor was zero on that frame.
+An import check of the edited gate opened the tumble term on both a \(+0.180\,\mathrm{m}\) rise and a \(-0.180\,\mathrm{m}\) drop, left a flat profile shut, and left a \(0.045\,\mathrm{m}\) slope at match \(0.875\).
+Training then resumed:
+\begin{quote}
+\texttt{uv run python scripts/train.py --teacher --task rough-test --num-envs 2048 --max-iterations 500 --resume research/logs/training/walter\_fs\_teacher\_rough-test/2026-10-14\_00-33-54/model\_998.pt}
+\end{quote}
+The cycle-3 checkpoint is \texttt{model\_1497.pt} under \texttt{research/logs/training/walter\_fs\_teacher\_rough-test/2026-10-14\_01-31-29/}.
+The file's iteration field is 1497, the last of 500 additional updates (iterations 998 through 1497).
+
+\section{One-Cell Protocol}
+\label{sec:protocol}
+
+Success is judged on one-cell clips, not on the reward curve.
+The evaluator places the robot on one \texttt{rough-test} cell, commands \(1\,\mathrm{m/s}\) forward, records \(8\,\mathrm{s}\), and writes a per-frame table of forward speed, knee rate, uprightness, distance traveled, forward-scan height, student action, PD action, and the PD tumble gate.
+Cycle~3 evaluated only the new checkpoint.
+The PD numbers are the cycle~0 clips.
+Cycles~1 and~2 are the comparison for the same cells.
+The old 17-action checkpoint was not retried.
+
+The clips are flat medium, flat hard, hard pyramid stairs, hard inverted stairs, hard box grid, and hard pyramid stairs with the policy height scan replaced by zeros.
+Student knee-rate onset is the first frame after \(0.5\,\mathrm{s}\) with knee rate above \(1\,\mathrm{rad/s}\).
+The first half-second is a startup transient on flat ground as well.
+The PD reference onset is the baseline gate distance.
+Flat speed is scored against the \(1\,\mathrm{m/s}\) command.
+The PD's \(0.697\,\mathrm{m/s}\) cruise is reported as a gap and is not, by itself, a flat failure.
+Hacking signs that fail a cycle even if reward rose are knee spin on flat ground, a high teacher match on stairs with no clearance, spinning in place, falling or bouncing for speed, and a scan ablation that leaves the clip unchanged.
+None of those signs is present in the cycle-3 clips.
+The goal still fails for the reasons in Section~\ref{sec:results}.
+
+\section{Results}
+\label{sec:results}
+
+Cycle~3 resumes the cycle-2 checkpoint.
+The iteration-998 line in the new log is \(2.33\), with episode length \(39.6\), because episode lengths were re-randomized at the start of the resume.
+By iteration 1048 the mean reward is \(52.12\) and the episode length is \(947.0\).
+At iteration 1497 the mean reward is \(51.90\), episode length is \(920.8\), the predictive knee term is \(0.129\), linear-velocity tracking is \(1.509\), and the teacher match is \(0.501\).
+Teacher-action MSE at that iteration is \(4.30\).
+Terrain level mean is \(2.12\) of a maximum of \(3\).
+Iteration 1496 mean reward was \(53.61\), so the last point is inside the late-run band.
+Cycle~2 ended at reward \(53.26\).
+The curve is cited here and does not decide a pass.
+Table~\ref{tab:goal-checks} is the decision.
+
+\begin{table}[ht]
+  \centering
+  \caption{Cycle~3 goal checks against the PD clips in the baseline review.
+    One seed. The goal is not passed.}
+  \label{tab:goal-checks}
+  \begin{tabular}{ll}
+    \toprule
+    Check & Status \\
+    \midrule
+    Flat, medium and hard: knee rate near zero; speed near \(1\,\mathrm{m/s}\) & pass \\
+    Hard inverted stairs and hard box grid: clearance at least the PD; earlier onset & fail \\
+    Hard pyramid stairs cleared (pitch, not a latched tumble) & pass \\
+    Scan ablation on hard pyramid stairs changes knee-rate onset & pass \\
+    Two seeds agree & fail \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+On flat ground, after the first second, knee-rate means are \(0.016\,\mathrm{rad/s}\) (medium) and \(0.014\,\mathrm{rad/s}\) (hard).
+Every frame after \(1\,\mathrm{s}\) is at or below \(0.058\,\mathrm{rad/s}\).
+Uprightness stays at \(1.000\).
+The gate stays off.
+Forward speed stays between \(0.994\) and \(1.070\,\mathrm{m/s}\) on medium and between \(0.995\) and \(1.075\,\mathrm{m/s}\) on hard.
+Both means are \(1.027\,\mathrm{m/s}\).
+The command error is about \(+0.027\,\mathrm{m/s}\).
+The gap versus the PD mean of \(0.697\,\mathrm{m/s}\) is about \(+0.33\,\mathrm{m/s}\).
+Cycle~2 means were \(1.093\) and \(1.094\,\mathrm{m/s}\) with knee-rate means \(0.044\,\mathrm{rad/s}\).
+Distance at \(8\,\mathrm{s}\) is \(8.190\,\mathrm{m}\) (medium) and \(8.187\,\mathrm{m}\) (hard), against the PD's \(5.536\,\mathrm{m}\).
+Frames show level wheel driving, not folded legs.
+Head-knee targets near \(0.6\,\mathrm{rad}\) are a held pose. The rate stays near zero.
+
+On hard pyramid stairs the PD gate stays off for all 400 frames.
+Knee rate crosses \(1\,\mathrm{rad/s}\) at \(0.680\,\mathrm{m}\), with scan height \(0.431\,\mathrm{m}\) and speed \(0.899\,\mathrm{m/s}\).
+Cycle~2 crossed at \(1.235\,\mathrm{m}\).
+The PD crosses \(1\,\mathrm{rad/s}\) at \(1.390\,\mathrm{m}\) and also never opens the gate.
+Knee commands peak at \(2.019\,\mathrm{rad}\) and return to the flat offset.
+Knee rate is back under \(0.1\,\mathrm{rad/s}\) by \(4.379\,\mathrm{m}\).
+The student ends at \(7.957\,\mathrm{m}\), speed \(1.006\,\mathrm{m/s}\), knee rate \(0.027\,\mathrm{rad/s}\), uprightness \(1.000\).
+The PD ends at \(5.492\,\mathrm{m}\).
+The cell is cleared.
+The motion is a pitch: the knees bend with the body and release.
+Frames go from a level body on the steps, to a nose-down pitch on the stair face, to a level body on the gray surround.
+
+On hard inverted stairs, knee rate crosses \(1\,\mathrm{rad/s}\) at \(0.718\,\mathrm{m}\) with speed still \(1.008\,\mathrm{m/s}\) and uprightness \(1.000\).
+Speed falls below \(0.5\,\mathrm{m/s}\) later, at \(0.765\,\mathrm{m}\), while knee rate is already \(2.511\,\mathrm{rad/s}\).
+The PD opens its gate at \(0.909\,\mathrm{m}\) after speed has already fallen.
+Cycle~2 crossed at \(0.832\,\mathrm{m}\) with speed \(1.050\,\mathrm{m/s}\).
+Onset is earlier than the PD.
+End distance is \(6.820\,\mathrm{m}\) against the PD's \(2.929\,\mathrm{m}\), with knee rate \(1.401\,\mathrm{rad/s}\) and uprightness \(0.826\).
+Peak knee command after \(0.5\,\mathrm{s}\) is \(10.548\,\mathrm{rad}\), against cycle~2's \(8.022\,\mathrm{rad}\) and the PD's windup to about \(19\,\mathrm{rad}\).
+Frames at \(5\,\mathrm{s}\) and \(7\,\mathrm{s}\) are still on the red stair face, short of the gray surround.
+The cell is not cleared.
+The knees do not return to the flat offset, so this is a tumble attempt rather than a pitch that releases.
+
+On the hard box grid, knee rate crosses \(1\,\mathrm{rad/s}\) at \(0.450\,\mathrm{m}\), speed \(0.507\,\mathrm{m/s}\), uprightness \(0.969\), scan height \(0.514\,\mathrm{m}\), gate off.
+The PD opens its gate at \(0.903\,\mathrm{m}\) with speed already \(0.256\,\mathrm{m/s}\).
+Cycle~2 crossed at \(0.431\,\mathrm{m}\) and then left the cell.
+The student ends at \(5.320\,\mathrm{m}\), speed \(-0.186\,\mathrm{m/s}\), knee rate \(2.477\,\mathrm{rad/s}\), uprightness \(0.997\), gate on.
+The PD ends at \(1.603\,\mathrm{m}\), uprightness \(0.664\).
+Peak knee command is \(9.603\,\mathrm{rad}\), and the end commands are still several radians.
+Frames at \(5\,\mathrm{s}\) and \(7\,\mathrm{s}\) are still in the green grid, legs folded, short of the gray surround.
+Distance is past the PD.
+The cell is not cleared, so the combined check fails.
+Cycle~2 had ended upright on the gray surround at \(6.634\,\mathrm{m}\).
+
+Zeroing the height scan on hard pyramid stairs removes the knee-rate crossing.
+With the scan it is at \(0.680\,\mathrm{m}\).
+Without the scan, knee rate after \(0.5\,\mathrm{s}\) stays at or below \(0.817\,\mathrm{rad/s}\).
+Final distance changes from \(7.957\,\mathrm{m}\) to \(12.800\,\mathrm{m}\), and final speed from \(1.006\,\mathrm{m/s}\) to \(1.613\,\mathrm{m/s}\).
+The uprightness drop is at \(1.125\,\mathrm{m}\) with the scan and at \(1.273\,\mathrm{m}\) without it.
+Both PD gates stay off.
+Cycle~2 moved the crossing from \(1.235\,\mathrm{m}\) to \(4.504\,\mathrm{m}\), and distance from \(8.345\,\mathrm{m}\) to \(10.399\,\mathrm{m}\).
+The scan changes the clip.
+The with-scan frame at \(1\,\mathrm{s}\) is still level; the ablated frame at \(1\,\mathrm{s}\) is already pitched.
+
+\section{Failure Cases}
+\label{sec:failures}
+
+The flat policy is upright and the knees are quiet, and the speed sits near the command.
+The mean speed \(1.027\,\mathrm{m/s}\) is about \(0.027\,\mathrm{m/s}\) above \(1\,\mathrm{m/s}\) and about \(0.33\,\mathrm{m/s}\) above the PD mean of \(0.697\,\mathrm{m/s}\).
+The PD gap is the controller's undershoot.
+It is not a flat failure.
+Knee rate after \(1\,\mathrm{s}\) stays at or below \(0.058\,\mathrm{rad/s}\).
+
+Hard pyramid stairs are cleared by pitching.
+The PD gate never opens.
+Knee commands peak at \(2.019\,\mathrm{rad}\) and return.
+Knee-rate onset at \(0.680\,\mathrm{m}\) is earlier than cycle~2's \(1.235\,\mathrm{m}\), and the motion still releases.
+Hard inverted stairs start the knees before the stall, at \(0.718\,\mathrm{m}\) against the PD gate at \(0.909\,\mathrm{m}\), and still do not leave the stair face.
+Distance \(6.820\,\mathrm{m}\) is past the PD's \(2.929\,\mathrm{m}\).
+The \(7\,\mathrm{s}\) frame is still on the red stairs, and uprightness at \(8\,\mathrm{s}\) is \(0.826\).
+The hard box grid also starts earlier, at \(0.450\,\mathrm{m}\) against the PD gate at \(0.903\,\mathrm{m}\), and does not leave the grid.
+The \(7\,\mathrm{s}\) frame is still among the green cubes.
+End speed is \(-0.186\,\mathrm{m/s}\) and the PD gate is still on.
+Cycle~2 had cleared that cell.
+Both obstacle cells therefore fail the combined check, even though both onsets are earlier than the PD.
+
+The scan ablation changes onset and distance, so the policy is not ignoring the scan on hard pyramid stairs.
+With the scan the crossing is at \(0.680\,\mathrm{m}\).
+Without it, knee rate after \(0.5\,\mathrm{s}\) never reaches \(1\,\mathrm{rad/s}\).
+Both PD gates stay off.
+The ablated body is already pitched at \(1\,\mathrm{s}\), while the scan clip at \(1\,\mathrm{s}\) is still level.
+
+No clip shows the hacking signs named in the protocol.
+Flat knees do not keep spinning, the pyramid clip is not a frozen copy of a late PD, distance traveled is several meters on every cell, and the ablated clip is not a copy of the scan clip.
+The cycle fails the goal checks anyway, because hard inverted stairs and the hard box grid are not cleared and only seed 42 was run.
+Two-seed agreement is not met and cannot be claimed.
+The study is unfinished.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This is cycle~3 of an unfinished study.
+The PD baseline remains the reactive reference: flat driving at about \(0.70\,\mathrm{m/s}\) with quiet knees, pyramid stairs cleared by pitching with the gate off, and inverted stairs and the box grid opened only after speed has already fallen.
+The cycle-2 inverted clip already spun the knees at positive speed, at \(0.832\,\mathrm{m}\), and then stalled at the stair with knee rate \(2.257\,\mathrm{rad/s}\) while forward speed was \(-0.001\,\mathrm{m/s}\).
+Cycle~3 stopped zeroing the predictive term on that stall and counted drops in the step measure.
+The seed-42 student was trained for 500 further iterations at 2048 environments, from \texttt{model\_998.pt} to \texttt{model\_1497.pt}, and mean reward at iteration 1497 is \(51.90\).
+Flat knee rate is near zero and flat speed is near the \(1\,\mathrm{m/s}\) command, about \(0.33\,\mathrm{m/s}\) above the PD.
+Hard pyramid stairs are cleared by pitching.
+Hard inverted stairs start the knee-rate rise at \(0.718\,\mathrm{m}\) against the PD gate at \(0.909\,\mathrm{m}\) and do not leave the stairs.
+Hard box grid starts at \(0.450\,\mathrm{m}\) against \(0.903\,\mathrm{m}\) and also does not leave the cell, which cycle~2 had cleared.
+A scan ablation moves hard-pyramid knee-rate onset from \(0.680\,\mathrm{m}\) to never.
+A second seed was not trained.
+The paper goal is not passed.
+
+\printbibliography
+
+\end{document}

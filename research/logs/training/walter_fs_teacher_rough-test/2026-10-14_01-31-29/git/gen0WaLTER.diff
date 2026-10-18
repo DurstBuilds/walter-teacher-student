@@ -1,0 +1,2023 @@
+--- git commit ---
+06d96b4249c2584a59a42ff65c17bba9d682e9df
+
+
+--- git status ---
+On branch RL-Testing
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   README.md
+	modified:   mjlab/src/mjlab/tasks/velocity/mdp/__pycache__/velocity_command.cpython-313.pyc
+	modified:   mjlab/src/mjlab/tasks/velocity/mdp/velocity_command.py
+	modified:   pyproject.toml
+	modified:   src/walter_rl/control/full_body_pd/__pycache__/controller.cpython-313.pyc
+	modified:   src/walter_rl/control/full_body_pd/__pycache__/env.cpython-313.pyc
+	modified:   src/walter_rl/control/full_body_pd/controller.py
+	modified:   src/walter_rl/control/full_body_pd/env.py
+	modified:   src/walter_rl/control/smooth_tumble/controller.py
+	modified:   src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/env_cfgs.cpython-313.pyc
+	modified:   src/walter_rl/tasks/velocity/config/walter_fs/env_cfgs.py
+	modified:   src/walter_rl/tasks/velocity/mdp/__init__.py
+	modified:   src/walter_rl/tasks/velocity/mdp/__pycache__/__init__.cpython-313.pyc
+	modified:   src/walter_rl/tasks/velocity/mdp/__pycache__/curriculums.cpython-313.pyc
+	modified:   src/walter_rl/tasks/velocity/mdp/__pycache__/rewards.cpython-313.pyc
+	modified:   src/walter_rl/tasks/velocity/mdp/curriculums.py
+	modified:   src/walter_rl/tasks/velocity/mdp/rewards.py
+	modified:   uv.lock
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	RL Manual.md
+	logs/
+	mjlab/src/mjlab/__pycache__/__init__.cpython-312.pyc
+	research/
+	scripts/__pycache__/
+	scripts/check_teacher_reward.py
+	scripts/eval_cells.py
+	scripts/panel.py
+	scripts/play.py
+	scripts/train.py
+	src/walter_rl/__pycache__/__init__.cpython-312.pyc
+	src/walter_rl/panel/
+	src/walter_rl/rl/
+	src/walter_rl/tasks/__pycache__/__init__.cpython-312.pyc
+	src/walter_rl/tasks/velocity/__pycache__/__init__.cpython-312.pyc
+	src/walter_rl/tasks/velocity/config/__pycache__/__init__.cpython-312.pyc
+	src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/__init__.cpython-312.pyc
+	src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/env_cfgs.cpython-312.pyc
+	wandb/
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/README.md b/README.md
+index a43f7f6..364df44 100644
+--- a/README.md
++++ b/README.md
+@@ -82,7 +82,7 @@ In the Viser **Twist** folder:
+ 
+ 1. Check **Enable** so the sliders override the sampled velocity command.
+ 2. Set **lin_vel_x** for forward speed and **ang_vel_z** for yaw rate. Lateral speed is locked at zero.
+-3. Leave **Tank Mode** checked to apply **hip_angle** and **knee_angle**. Unchecked, both commands are zero and the sliders keep their values. **hip_angle** is degrees; positive points the front hips forward and the rear hips backward. **Flip front hip** reverses the front hip and front knee zeros (like Tank Mode for the rear knee). **knee_angle** is degrees and shifts the knee zero; positive lowers the front inner wheels. With Tank Mode on, the rear zero moves the other way, so positive raises the rear inner wheels. The knee servo uses `tank_actuator_kp` and `tank_actuator_kd` while the box is checked.
++3. Check **Tank Mode** to apply **hip_angle** and **knee_angle**. It starts unchecked. Unchecked, both commands are zero and the sliders keep their values. **hip_angle** is degrees; positive points the front hips forward and the rear hips backward. **Flip front hip** reverses the front hip and front knee zeros (like Tank Mode for the rear knee). **knee_angle** is degrees and shifts the knee zero; positive lowers the front inner wheels. With Tank Mode on, the rear zero moves the other way, so positive raises the rear inner wheels. The knee servo uses `tank_actuator_kp` and `tank_actuator_kd` while the box is checked.
+ 4. Leave **Tumbling** checked so the stall integral runs. The motors tab shows **lin vel integral (m)**. Unchecked, the integral is cleared and the knees stay on the roll pose.
+ 5. Leave **Orientation** checked to level pitch and roll. Unchecked, those errors are treated as zero.
+ 6. **Rated torque cap** and **Rated speed cap** hold the DC motors on the continuous ratings. Both start unchecked, so the peak torque envelope and the no-load speed corner stay in use.
+@@ -119,7 +119,7 @@ There is no `.env` file. Behavior comes from CLI flags, `gains.py`, and two envi
+ | --- | --- |
+ | `flat` | Infinite plane. Terrain height scans are removed. |
+ | `rough` | mjlab velocity mix with WaLTER caps: pyramid slopes up to 0.45, waves up to 0.12 m, stairs up to 0.12 m. |
+-| `rough-test` | Same mix on every third difficulty row (0, 3, 6, 9), with stair step heights scaled by 1.5. The uniform-noise column is a random grid whose cell height grows from 0 to 0.3 m along the row. |
++| `rough-test` | Same mix on every third difficulty row (0, 3, 6, 9), with stair step heights scaled by 1.5. The uniform-noise column is a random grid of cubes whose cell height grows from 0 to 0.24 m along the row (four fifths of the 0.3 m preset). |
+ | `stairs` | Flat (15%) plus pyramid and inverse-pyramid stairs (6–18 cm). The curriculum holds an environment on the hardest row after it clears it. |
+ 
+ Play mode (`play=True`, which the script always sets) uses a very long episode, disables observation noise and pushes, and turns the terrain curriculum off for the run.
+diff --git a/mjlab/src/mjlab/tasks/velocity/mdp/__pycache__/velocity_command.cpython-313.pyc b/mjlab/src/mjlab/tasks/velocity/mdp/__pycache__/velocity_command.cpython-313.pyc
+index bed300c..63fe272 100644
+Binary files a/mjlab/src/mjlab/tasks/velocity/mdp/__pycache__/velocity_command.cpython-313.pyc and b/mjlab/src/mjlab/tasks/velocity/mdp/__pycache__/velocity_command.cpython-313.pyc differ
+diff --git a/mjlab/src/mjlab/tasks/velocity/mdp/velocity_command.py b/mjlab/src/mjlab/tasks/velocity/mdp/velocity_command.py
+index e23f0ec..b8beda6 100644
+--- a/mjlab/src/mjlab/tasks/velocity/mdp/velocity_command.py
++++ b/mjlab/src/mjlab/tasks/velocity/mdp/velocity_command.py
+@@ -95,6 +95,37 @@ def _axis_level(slider) -> float:
+   return round((_AXIS_COMMAND_FRACTION * float(slider.max)) / step) * step
+ 
+ 
++def _sample_range(
++  rand: torch.Tensor,
++  bounds: tuple[float, float],
++  power: float,
++) -> torch.Tensor:
++  """Draw from ``bounds``. ``power`` below 1 bunches samples toward the top.
++
++  A power of 1 is uniform. A power of 0.5 takes the square root of a unit
++  uniform draw, so the density rises linearly and the top of the range is
++  twice as likely as the midpoint.
++  """
++  low, high = bounds
++  if high == low or power == 1.0:
++    return rand.uniform_(low, high)
++  unit = rand.uniform_(0.0, 1.0).pow_(power)
++  return low + (high - low) * unit
++
++
++def _zero_yaw(
++  command: torch.Tensor,
++  env_ids: torch.Tensor,
++  rand: torch.Tensor,
++  probability: float,
++) -> None:
++  """Set yaw to 0 on a random fraction of ``env_ids``."""
++  if probability <= 0.0:
++    return
++  zero = rand.uniform_(0.0, 1.0) <= probability
++  command[env_ids[zero], 2] = 0.0
++
++
+ class UniformVelocityCommand(CommandTerm):
+   cfg: UniformVelocityCommandCfg
+ 
+@@ -186,9 +217,12 @@ class UniformVelocityCommand(CommandTerm):
+ 
+   def _resample_command(self, env_ids: torch.Tensor) -> None:
+     r = torch.empty(len(env_ids), device=self.device)
+-    self.vel_command_b[env_ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
++    self.vel_command_b[env_ids, 0] = _sample_range(
++      r, self.cfg.ranges.lin_vel_x, self.cfg.lin_vel_x_power
++    )
+     self.vel_command_b[env_ids, 1] = r.uniform_(*self.cfg.ranges.lin_vel_y)
+     self.vel_command_b[env_ids, 2] = r.uniform_(*self.cfg.ranges.ang_vel_z)
++    _zero_yaw(self.vel_command_b, env_ids, r, self.cfg.zero_ang_vel_prob)
+     if self.cfg.heading_command:
+       assert self.cfg.ranges.heading is not None
+       self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
+@@ -291,7 +325,7 @@ class UniformVelocityCommand(CommandTerm):
+ 
+     with server.gui.add_folder(name.capitalize()):
+       enabled = server.gui.add_checkbox("Enable", initial_value=False)
+-      tank_mode = server.gui.add_checkbox("Tank Mode", initial_value=True)
++      tank_mode = server.gui.add_checkbox("Tank Mode", initial_value=False)
+       tumbling = server.gui.add_checkbox(
+         "Tumbling",
+         initial_value=True,
+@@ -580,6 +614,12 @@ class UniformVelocityCommandCfg(CommandTermCfg):
+   init_velocity_prob: float = 0.0
+   """Probability that an env starts its episode already moving at its sampled
+   planar command velocity. Applied on reset only."""
++  lin_vel_x_power: float = 1.0
++  """Exponent on a unit uniform draw before it is scaled into ``lin_vel_x``.
++  1 is uniform. Below 1 the density rises toward the top of the range."""
++  zero_ang_vel_prob: float = 0.0
++  """Chance a resampled yaw rate is set to 0. Independent of standing, which
++  still zeros the whole command."""
+ 
+   @dataclass
+   class Ranges:
+diff --git a/pyproject.toml b/pyproject.toml
+index af0127e..864a0c6 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -9,6 +9,10 @@ description = "gen0 Walter full-body PD control in the flat, rough, and stairs s
+ requires-python = ">=3.12,<3.14"
+ dependencies = [
+   "mjlab",
++  "rsl-rl-lib==5.4.2",
++  "tensorboard>=2.20.0",
++  "tensordict",
++  "wandb>=0.22.3",
+ ]
+ 
+ [tool.uv.sources]
+diff --git a/src/walter_rl/control/full_body_pd/__pycache__/controller.cpython-313.pyc b/src/walter_rl/control/full_body_pd/__pycache__/controller.cpython-313.pyc
+index 720e908..2683d24 100644
+Binary files a/src/walter_rl/control/full_body_pd/__pycache__/controller.cpython-313.pyc and b/src/walter_rl/control/full_body_pd/__pycache__/controller.cpython-313.pyc differ
+diff --git a/src/walter_rl/control/full_body_pd/__pycache__/env.cpython-313.pyc b/src/walter_rl/control/full_body_pd/__pycache__/env.cpython-313.pyc
+index 4c24323..c20a758 100644
+Binary files a/src/walter_rl/control/full_body_pd/__pycache__/env.cpython-313.pyc and b/src/walter_rl/control/full_body_pd/__pycache__/env.cpython-313.pyc differ
+diff --git a/src/walter_rl/control/full_body_pd/controller.py b/src/walter_rl/control/full_body_pd/controller.py
+index 24c991b..28ffd1a 100644
+--- a/src/walter_rl/control/full_body_pd/controller.py
++++ b/src/walter_rl/control/full_body_pd/controller.py
+@@ -1,7 +1,7 @@
+ """PD loops that fill the Walter action vector.
+ 
+ Hips, knees, and wheels use the same action terms as the velocity task.
+-The waist term exists only on the PD environment and is held at zero.
++``head_joint`` is fixed at 0 degrees and is not an action.
+ """
+ 
+ from __future__ import annotations
+@@ -71,7 +71,7 @@ class FullBodyPdController:
+     self._right_thighs = _body_ids(robot, _RIGHT_THIGHS, device)
+     self._left_wheels = _wheel_columns(robot, columns, "left", device)
+     self._right_wheels = _wheel_columns(robot, columns, "right", device)
+-    self._waist_column = columns[_WAIST]
++    self._waist_column = columns.get(_WAIST)
+     self._knee_scale = _knee_position_scale(env)
+     self._knee_ids = torch.cat((self._left_knees.ids, self._right_knees.ids))
+     self._knee_columns = torch.cat(
+@@ -103,6 +103,11 @@ class FullBodyPdController:
+     """Gains used by the loops."""
+     return self._gains
+ 
++  @property
++  def tumbling(self) -> torch.Tensor:
++    """Latched speed-lag tumble gate, one flag per environment."""
++    return self._tumbling
++
+   def reset(self) -> None:
+     """Clear the stall integral. Yaw has no accumulated heading."""
+     self._clear_tumble(slice(None))
+@@ -121,7 +126,8 @@ class FullBodyPdController:
+     self._apply_roll(actions, robot)
+     self._apply_tumble(actions, robot)
+     self._apply_wheels(actions, robot)
+-    actions[:, self._waist_column] = 0.0
++    if self._waist_column is not None:
++      actions[:, self._waist_column] = 0.0
+     return actions
+ 
+   def _sync_knee_servo(self) -> None:
+diff --git a/src/walter_rl/control/full_body_pd/env.py b/src/walter_rl/control/full_body_pd/env.py
+index b3c267d..939f23d 100644
+--- a/src/walter_rl/control/full_body_pd/env.py
++++ b/src/walter_rl/control/full_body_pd/env.py
+@@ -1,6 +1,6 @@
+-"""PD-only Walter environments.
++"""PD and RL Walter environments share the locked head joint.
+ 
+-The waist position actuator is added here and is not part of the RL tasks.
++``head_joint`` is fixed at 0 degrees. It is not an action.
+ """
+ 
+ from __future__ import annotations
+@@ -9,6 +9,7 @@ from dataclasses import replace
+ from typing import Literal
+ 
+ import mujoco
++import numpy as np
+ import torch
+ 
+ from mjlab.actuator import BuiltinPositionActuatorCfg, DcMotorActuatorCfg
+@@ -52,7 +53,7 @@ def make_pd_env(
+   episode_length_s: float | None = None,
+   payload: str | None = None,
+ ) -> ManagerBasedRlEnv:
+-  """Build a Walter env whose action vector includes the waist hold."""
++  """Build a Walter env with ``head_joint`` fixed at 0 degrees."""
+   chosen = "rough" if easy_rough else task
+   cfg = _CFG_FOR_TASK[chosen](play=play)
+   _add_waist_lock(cfg, gains if gains is not None else default_gains())
+@@ -92,29 +93,17 @@ def _default_device() -> str:
+ 
+ 
+ def _add_waist_lock(cfg: ManagerBasedRlEnvCfg, gains: FullBodyPdGains) -> None:
+-  """Servo ``head_joint`` to zero without changing the RL robot config."""
++  """Fix ``head_joint`` at 0 degrees without changing the shared robot config."""
+   robot = get_walter_fs_robot_cfg()
+-  robot.spec_fn = _spec_without_waist_spring
++  assert robot.articulation is not None
++  # The articulation object is shared. Copy it before editing gains or actuators.
++  robot.articulation = replace(robot.articulation)
++  robot.spec_fn = _spec_with_fixed_head
+   _stiffen_hips(robot, gains)
+   _stiffen_knees(robot, gains)
+-  assert robot.articulation is not None
+-  robot.articulation.actuators = (
+-    *robot.articulation.actuators,
+-    BuiltinPositionActuatorCfg(
+-      target_names_expr=("head_joint",),
+-      stiffness=gains.waist.kp,
+-      damping=gains.waist.kd,
+-      effort_limit=gains.waist.effort_limit,
+-    ),
+-  )
+   cfg.scene.entities["robot"] = robot
+   _use_absolute_knee_action(cfg)
+-  cfg.actions["waist"] = JointPositionActionCfg(
+-    entity_name="robot",
+-    actuator_names=("head_joint",),
+-    scale=1.0,
+-    use_default_offset=True,
+-  )
++  cfg.actions.pop("waist", None)
+ 
+ 
+ def _stiffen_hips(robot, gains: FullBodyPdGains) -> None:
+@@ -186,15 +175,33 @@ def _use_absolute_knee_action(cfg: ManagerBasedRlEnvCfg) -> None:
+   )
+ 
+ 
+-def _spec_without_waist_spring() -> mujoco.MjSpec:
+-  """Drop the MJCF waist spring so the gain file is the whole hold loop."""
++# Equality time constant. Short enough that a large moment leaves the head
++# within a hundredth of a degree of zero.
++_HEAD_LOCK_SOLREF = (0.002, 1.0)
++
++
++def _spec_with_fixed_head() -> mujoco.MjSpec:
++  """Drop the waist spring and constrain ``head_joint`` to 0."""
+   spec = get_spec()
++  _lock_head_joint(spec)
++  return spec
++
++
++def _lock_head_joint(spec: mujoco.MjSpec) -> None:
++  """Replace the ±25 deg waist hinge with a joint equality at q = 0."""
+   for joint in spec.joints:
+     if joint.name != "head_joint":
+       continue
+     joint.stiffness[:] = 0.0
+     joint.damping[:] = 0.0
+-  return spec
++  equality = spec.add_equality(
++    name="head_fixed",
++    type=mujoco.mjtEq.mjEQ_JOINT,
++    name1="head_joint",
++  )
++  # a0 + a1 q = 0, with a1 = 1, so the joint angle is 0.
++  equality.data[:5] = np.array([0.0, 1.0, 0.0, 0.0, 0.0])
++  equality.solref[:] = np.array(_HEAD_LOCK_SOLREF)
+ 
+ 
+ def _apply_easy_rough(cfg: ManagerBasedRlEnvCfg) -> None:
+diff --git a/src/walter_rl/control/smooth_tumble/controller.py b/src/walter_rl/control/smooth_tumble/controller.py
+index b3932fb..c309d9f 100644
+--- a/src/walter_rl/control/smooth_tumble/controller.py
++++ b/src/walter_rl/control/smooth_tumble/controller.py
+@@ -1,7 +1,7 @@
+ """PD loops that fill the Walter action vector, with level hips while tumbling.
+ 
+ Hips, knees, and wheels use the same action terms as the velocity task.
+-The waist term exists only on the PD environment and is held at zero.
++``head_joint`` is fixed at 0 degrees and is not an action.
+ While the knees tumble or settle, the hips hold a flat-ground contact
+ height instead of zeroing torso pitch.
+ """
+@@ -82,7 +82,7 @@ class SmoothTumbleController:
+     self._right_thighs = _body_ids(robot, _RIGHT_THIGHS, device)
+     self._left_wheels = _wheel_columns(robot, columns, "left", device)
+     self._right_wheels = _wheel_columns(robot, columns, "right", device)
+-    self._waist_column = columns[_WAIST]
++    self._waist_column = columns.get(_WAIST)
+     self._knee_scale = _knee_position_scale(env)
+     self._knee_ids = torch.cat((self._left_knees.ids, self._right_knees.ids))
+     self._knee_columns = torch.cat(
+@@ -132,7 +132,8 @@ class SmoothTumbleController:
+     self._apply_tumble(actions, robot)
+     self._apply_pitch(actions, robot)
+     self._apply_wheels(actions, robot)
+-    actions[:, self._waist_column] = 0.0
++    if self._waist_column is not None:
++      actions[:, self._waist_column] = 0.0
+     return actions
+ 
+   def _sync_knee_servo(self) -> None:
+diff --git a/src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/env_cfgs.cpython-313.pyc b/src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/env_cfgs.cpython-313.pyc
+index fa445f1..7c8194e 100644
+Binary files a/src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/env_cfgs.cpython-313.pyc and b/src/walter_rl/tasks/velocity/config/walter_fs/__pycache__/env_cfgs.cpython-313.pyc differ
+diff --git a/src/walter_rl/tasks/velocity/config/walter_fs/env_cfgs.py b/src/walter_rl/tasks/velocity/config/walter_fs/env_cfgs.py
+index 1bb7ba7..073c2d5 100644
+--- a/src/walter_rl/tasks/velocity/config/walter_fs/env_cfgs.py
++++ b/src/walter_rl/tasks/velocity/config/walter_fs/env_cfgs.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ import math
+ from dataclasses import replace
+ from itertools import combinations
++from typing import Literal
+ 
+ from mjlab.envs import ManagerBasedRlEnvCfg
+ from mjlab.envs import mdp as envs_mdp
+@@ -15,6 +16,7 @@ from mjlab.envs.mdp.actions import (
+ )
+ from mjlab.managers.event_manager import EventTermCfg
+ from mjlab.managers.curriculum_manager import CurriculumTermCfg
++from mjlab.managers.metrics_manager import MetricsTermCfg
+ from mjlab.managers.observation_manager import ObservationTermCfg
+ from mjlab.managers.reward_manager import RewardTermCfg
+ from mjlab.managers.scene_entity_config import SceneEntityCfg
+@@ -50,13 +52,18 @@ from walter_rl.tasks.velocity.mdp import (
+   finite_joint_pos_rel,
+   finite_joint_vel_rel,
+   finite_projected_gravity,
++  KneeStuckTumble,
++  gated_track_teacher_action,
+   head_level,
+   joint_pos_sincos,
+   knee_tumble,
+   knee_tumble_reverse,
+   knee_waste,
+   non_finite_root,
++  predictive_knee_tumble,
++  teacher_action_mse,
+   terrain_levels_hold_max,
++  wrap_terrain_levels,
+   track_lin_vel_xy,
+   track_ride_height,
+   wheel_wheel_collision,
+@@ -168,6 +175,249 @@ def walter_fs_stairs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+   return cfg
+ 
+ 
++# Peak rates of the simple velocity task. On flat ground the gated teacher
++# match stays under the sum of the two tracking weights.
++FORWARD_TRACK_WEIGHT = 2.0
++YAW_TRACK_WEIGHT = 1.0
++UPRIGHT_WEIGHT = 0.1
++ACTION_RATE_WEIGHT = -0.02
++HEAD_LEVEL_WEIGHT = -0.1
++# One per touching wheel pair. The same count is used on the terrain task.
++WHEEL_COLLISION_WEIGHT = -1.0
++# Four knees at the PD tumble rate, with the integral at its 0.5 m cap, sum
++# to 6. This weight keeps that peak at 1.5, under forward tracking.
++KNEE_STUCK_TUMBLE_WEIGHT = 0.25
++# Flat-ground peak of the gated teacher match. The kernel is in [0, 1] and
++# the scan gate is 1 while the forward step is at most 0.04 m, so the term
++# contributes 1.5 there, under forward tracking (2.0) plus yaw (1.0). A
++# step of 0.08 m or more zeros the gate.
++TRACK_TEACHER_WEIGHT = 1.5
++TRACK_TEACHER_STD = 1.0
++# Mean forward knee rate divided by the PD tumble rate, times the scan
++# tumble gate. A stall at an open gate still pays. A flat scan does not.
++# The kernel is at most about 1 at the PD tumble rate, under forward tracking.
++PREDICTIVE_KNEE_TUMBLE_WEIGHT = 1.0
++_LIN_VEL_STD = math.sqrt(0.25)
++_ANG_VEL_STD = math.sqrt(0.5)
++
++
++RlSceneName = Literal["flat", "rough", "rough-test", "stairs"]
++
++
++def walter_fs_rl_env_cfg(
++  play: bool = False,
++  task: RlSceneName = "flat",
++) -> ManagerBasedRlEnvCfg:
++  """Forward-and-yaw task on ``task`` terrain, with the trained action layout.
++
++  Hips, absolute knees, and wheels match ``FullBodyPdController``.
++  ``head_joint`` is fixed at 0 degrees and is not an action.
++  Actor and critic both include the torso terrain-height scan. Flat ground
++  keeps that sensor too, so the observation width matches the rough scenes.
++  """
++  scenes = {
++    "flat": walter_fs_flat_env_cfg,
++    "rough": walter_fs_rough_env_cfg,
++    "rough-test": walter_fs_rough_test_env_cfg,
++    "stairs": walter_fs_stairs_env_cfg,
++  }
++  cfg = scenes[task](play=play)
++  _configure_simple_commands(cfg)
++  _configure_simple_rewards(cfg)
++  _add_terrain_scan_observation(cfg)
++  # Imported inside the function. The PD env module imports this one.
++  from walter_rl.control.full_body_pd.env import _add_waist_lock
++  from walter_rl.control.full_body_pd.gains import default_gains
++
++  _add_waist_lock(cfg, default_gains())
++  _pin_hard_inverted_stairs(cfg)
++  return cfg
++
++
++def _pin_hard_inverted_stairs(cfg: ManagerBasedRlEnvCfg) -> None:
++  """Keep 80% of inverted-stair environments on the hardest row."""
++  term = cfg.curriculum.get("terrain_levels")
++  if term is None:
++    return
++  term.func = wrap_terrain_levels(term.func)
++
++
++def walter_fs_teacher_env_cfg(
++  play: bool = False,
++  task: RlSceneName = "flat",
++) -> ManagerBasedRlEnvCfg:
++  """Velocity task on ``task`` terrain, with scan-gated PD matching.
++
++  ``track_teacher`` copies the PD while the forward scan has no step.
++  ``predictive_knee_tumble`` pays for knee rate when a step is ahead.
++  ``knee_stuck_tumble`` remains the lag recovery signal.
++  """
++  cfg = walter_fs_rl_env_cfg(play=play, task=task)
++  cfg.rewards["track_teacher"] = RewardTermCfg(
++    func=gated_track_teacher_action,
++    weight=TRACK_TEACHER_WEIGHT,
++    params={"std": TRACK_TEACHER_STD, "sensor_name": "terrain_scan"},
++  )
++  cfg.rewards["predictive_knee_tumble"] = RewardTermCfg(
++    func=predictive_knee_tumble,
++    weight=PREDICTIVE_KNEE_TUMBLE_WEIGHT,
++    params={
++      "command_name": "twist",
++      "asset_cfg": SceneEntityCfg("robot", joint_names=_KNEE_JOINTS),
++      "sensor_name": "terrain_scan",
++    },
++  )
++  cfg.metrics["teacher_action_mse"] = MetricsTermCfg(func=teacher_action_mse)
++  return cfg
++
++
++_TERRAIN_SCAN_SIZE = (2.4, 1.2)
++_TERRAIN_SCAN_RESOLUTION = 0.1
++_TERRAIN_SCAN_OFFSET = (0.4, 0.0)
++_TERRAIN_SCAN_MAX_DISTANCE = 5.0
++
++
++def _add_terrain_scan_observation(cfg: ManagerBasedRlEnvCfg) -> None:
++  """Put the torso terrain-height grid in the actor and the critic.
++
++  Flat scenes drop the scan because the PD task never reads it. The policy
++  needs the same grid on every scene, placed just before the knee encoding.
++  """
++  _ensure_terrain_scan_sensor(cfg)
++  for group_name in ("actor", "critic"):
++    _install_height_scan(cfg, group_name)
++
++
++def _ensure_terrain_scan_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
++  """Restore the torso scan when a flat scene has removed it."""
++  sensors = list(cfg.scene.sensors or ())
++  if any(sensor.name == "terrain_scan" for sensor in sensors):
++    return
++  sensors.append(_terrain_scan_sensor())
++  cfg.scene.sensors = tuple(sensors)
++
++
++def _install_height_scan(cfg: ManagerBasedRlEnvCfg, group_name: str) -> None:
++  """Insert ``height_scan`` immediately before ``knee_sincos``."""
++  terms = cfg.observations[group_name].terms
++  existing = terms.pop("height_scan", None)
++  knee = terms.pop("knee_sincos", None)
++  terms["height_scan"] = existing if existing is not None else _height_scan_term(
++    noisy=group_name == "actor"
++  )
++  if knee is not None:
++    terms["knee_sincos"] = knee
++
++
++def _height_scan_term(*, noisy: bool) -> ObservationTermCfg:
++  """Terrain height above each ray, scaled by the scan's max distance."""
++  return ObservationTermCfg(
++    func=finite_height_scan,
++    params={"sensor_name": "terrain_scan"},
++    noise=Unoise(n_min=-0.1, n_max=0.1) if noisy else None,
++    scale=1.0 / _TERRAIN_SCAN_MAX_DISTANCE,
++  )
++
++
++def _terrain_scan_sensor() -> RayCastSensorCfg:
++  """Torso grid looking 1.6 m ahead and 0.8 m behind."""
++  return RayCastSensorCfg(
++    name="terrain_scan",
++    frame=ObjRef(type="body", name="torso", entity="robot"),
++    ray_alignment="yaw",
++    pattern=GridPatternCfg(
++      size=_TERRAIN_SCAN_SIZE,
++      resolution=_TERRAIN_SCAN_RESOLUTION,
++      offset=_TERRAIN_SCAN_OFFSET,
++    ),
++    max_distance=_TERRAIN_SCAN_MAX_DISTANCE,
++    exclude_parent_body=True,
++    include_geom_groups=(0,),
++    debug_vis=True,
++    debug_vis_enabled=False,
++  )
++
++
++# Cube root of a unit uniform draw. Its mean is 3/4, so forward speed
++# averages 0.25 + 0.75 = 1 m/s.
++_TRAIN_LIN_VEL_X = (0.25, 1.25)
++_TRAIN_LIN_VEL_X_POWER = 1.0 / 3.0
++_TRAIN_ANG_VEL_Z = (-1.0, 1.0)
++_TRAIN_ZERO_YAW_PROB = 0.5
++_TRAIN_STANDING_PROB = 0.05
++
++
++def _configure_simple_commands(cfg: ManagerBasedRlEnvCfg) -> None:
++  """Sample body-frame forward speed and yaw rate, and nothing else.
++
++  Forward speed is drawn from 0.25–1.25 m/s with a cube-root bias, so the
++  average draw is 1 m/s. Yaw stays in ±1 rad/s, and half of resamples set it
++  to 0. Five percent of resamples are a full stop, chosen independently of
++  that yaw coin flip.
++  """
++  twist = cfg.commands["twist"]
++  assert isinstance(twist, UniformVelocityCommandCfg)
++  twist.heading_command = False
++  twist.rel_standing_envs = _TRAIN_STANDING_PROB
++  twist.rel_heading_envs = 0.0
++  twist.rel_forward_envs = 0.0
++  twist.rel_world_envs = 0.0
++  twist.rel_max_ride_height_envs = 0.0
++  twist.lin_vel_x_power = _TRAIN_LIN_VEL_X_POWER
++  twist.zero_ang_vel_prob = _TRAIN_ZERO_YAW_PROB
++  twist.ranges.lin_vel_x = _TRAIN_LIN_VEL_X
++  twist.ranges.lin_vel_y = (0.0, 0.0)
++  twist.ranges.ang_vel_z = _TRAIN_ANG_VEL_Z
++  twist.ranges.heading = None
++  twist.ranges.ride_height = None
++  cfg.curriculum.pop("command_vel", None)
++
++
++def _configure_simple_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
++  """Track forward speed and yaw, and pay for a forward tumble while stuck."""
++  cfg.rewards = {
++    "track_linear_velocity": RewardTermCfg(
++      func=track_lin_vel_xy,
++      weight=FORWARD_TRACK_WEIGHT,
++      params={"command_name": "twist", "std": _LIN_VEL_STD},
++    ),
++    "track_angular_velocity": RewardTermCfg(
++      func=mdp.track_angular_velocity,
++      weight=YAW_TRACK_WEIGHT,
++      params={"command_name": "twist", "std": _ANG_VEL_STD},
++    ),
++    "upright": RewardTermCfg(
++      func=mdp.upright,
++      weight=UPRIGHT_WEIGHT,
++      params={
++        "std": math.sqrt(0.2),
++        "asset_cfg": SceneEntityCfg("robot", body_names=("torso",)),
++      },
++    ),
++    "action_rate_l2": RewardTermCfg(
++      func=mdp.action_rate_l2,
++      weight=ACTION_RATE_WEIGHT,
++    ),
++    "head_level": RewardTermCfg(
++      func=head_level,
++      weight=HEAD_LEVEL_WEIGHT,
++      params={"asset_cfg": SceneEntityCfg("robot", joint_names=("head_joint",))},
++    ),
++    "wheel_wheel_collision": RewardTermCfg(
++      func=wheel_wheel_collision,
++      weight=WHEEL_COLLISION_WEIGHT,
++    ),
++    "knee_stuck_tumble": RewardTermCfg(
++      func=KneeStuckTumble,
++      weight=KNEE_STUCK_TUMBLE_WEIGHT,
++      params={
++        "command_name": "twist",
++        "asset_cfg": SceneEntityCfg("robot", joint_names=_KNEE_JOINTS),
++      },
++    ),
++  }
++
++
+ def _configure_sim(cfg: ManagerBasedRlEnvCfg) -> None:
+   """Give the wheel contacts a bit more solver budget than the factory default."""
+   cfg.sim.mujoco.ccd_iterations = 100
+@@ -233,9 +483,9 @@ def _point_terrain_scan_at_torso(cfg: ManagerBasedRlEnvCfg) -> None:
+     # Rear edge stays at -0.8 m. The extra length and a forward shift look
+     # out to 1.6 m in front of the torso.
+     sensor.pattern = GridPatternCfg(
+-      size=(2.4, 1.2),
+-      resolution=0.1,
+-      offset=(0.4, 0.0),
++      size=_TERRAIN_SCAN_SIZE,
++      resolution=_TERRAIN_SCAN_RESOLUTION,
++      offset=_TERRAIN_SCAN_OFFSET,
+     )
+ 
+ 
+@@ -404,7 +654,7 @@ def _configure_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
+   )
+   cfg.rewards["wheel_wheel_collision"] = RewardTermCfg(
+     func=wheel_wheel_collision,
+-    weight=-1.0,
++    weight=WHEEL_COLLISION_WEIGHT,
+   )
+   # Oriented, terrain+command gated tumble. Prefer front-down (+qdot when
+   # driving forward). Penalize reverse tumble; waste only on the flat column.
+@@ -462,11 +712,17 @@ def _configure_terminations(cfg: ManagerBasedRlEnvCfg) -> None:
+   )
+ 
+ 
++# Four fifths of the preset cube-field height is the hard row. Easier rows
++# keep the same linear ramp, so they land at 0, 1/3, and 2/3 of that cap.
++_CUBE_FIELD_HEIGHT_SCALE = 4.0 / 5.0
++
++
+ def _swap_noise_for_random_grid(cfg: ManagerBasedRlEnvCfg) -> None:
+-  """Replace the uniform-noise column with a difficulty-scaled random grid.
++  """Replace the uniform-noise column with a difficulty-scaled cube field.
+ 
+-  Cell height interpolates ``grid_height_range`` by row difficulty, so the
+-  column grows from flat at the easy end to the full height at the hard end.
++  Cell height interpolates ``grid_height_range`` by row difficulty. The hard
++  row stops at four fifths of the preset height, and the easier rows scale
++  by the same factor.
+   """
+   assert cfg.scene.terrain is not None
+   generator = cfg.scene.terrain.terrain_generator
+@@ -476,7 +732,12 @@ def _swap_noise_for_random_grid(cfg: ManagerBasedRlEnvCfg) -> None:
+     if name != "random_rough":
+       replaced[name] = sub
+       continue
+-    replaced["random_grid"] = box_random_grid(proportion=sub.proportion)
++    grid = box_random_grid(proportion=sub.proportion)
++    low, high = grid.grid_height_range
++    replaced["random_grid"] = replace(
++      grid,
++      grid_height_range=(low, low + (high - low) * _CUBE_FIELD_HEIGHT_SCALE),
++    )
+   generator.sub_terrains = replaced
+ 
+ 
+diff --git a/src/walter_rl/tasks/velocity/mdp/__init__.py b/src/walter_rl/tasks/velocity/mdp/__init__.py
+index 980de53..5e6587b 100644
+--- a/src/walter_rl/tasks/velocity/mdp/__init__.py
++++ b/src/walter_rl/tasks/velocity/mdp/__init__.py
+@@ -1,6 +1,9 @@
+ """WaLTER velocity MDP terms."""
+ 
+-from walter_rl.tasks.velocity.mdp.curriculums import terrain_levels_hold_max
++from walter_rl.tasks.velocity.mdp.curriculums import (
++  terrain_levels_hold_max,
++  wrap_terrain_levels,
++)
+ from walter_rl.tasks.velocity.mdp.observations import (
+   finite_builtin_sensor,
+   finite_height_scan,
+@@ -11,14 +14,20 @@ from walter_rl.tasks.velocity.mdp.observations import (
+   non_finite_root,
+ )
+ from walter_rl.tasks.velocity.mdp.rewards import (
++  KneeStuckTumble,
+   climb_vz,
+   drive_forward,
++  gated_track_teacher_action,
+   head_level,
++  integrate_speed_lag,
+   knee_tumble,
+   knee_tumble_reverse,
+   knee_waste,
++  predictive_knee_tumble,
++  teacher_action_mse,
+   track_lin_vel_xy,
+   track_ride_height,
++  track_teacher_action,
+   wheel_wheel_collision,
+ )
+ 
+@@ -30,14 +39,21 @@ __all__ = [
+   "finite_joint_pos_rel",
+   "finite_joint_vel_rel",
+   "finite_projected_gravity",
++  "gated_track_teacher_action",
+   "head_level",
++  "integrate_speed_lag",
+   "joint_pos_sincos",
++  "KneeStuckTumble",
+   "knee_tumble",
+   "knee_tumble_reverse",
+   "knee_waste",
+   "non_finite_root",
++  "predictive_knee_tumble",
++  "teacher_action_mse",
+   "terrain_levels_hold_max",
++  "wrap_terrain_levels",
+   "track_lin_vel_xy",
+   "track_ride_height",
++  "track_teacher_action",
+   "wheel_wheel_collision",
+ ]
+diff --git a/src/walter_rl/tasks/velocity/mdp/__pycache__/__init__.cpython-313.pyc b/src/walter_rl/tasks/velocity/mdp/__pycache__/__init__.cpython-313.pyc
+index b6372cf..d6de305 100644
+Binary files a/src/walter_rl/tasks/velocity/mdp/__pycache__/__init__.cpython-313.pyc and b/src/walter_rl/tasks/velocity/mdp/__pycache__/__init__.cpython-313.pyc differ
+diff --git a/src/walter_rl/tasks/velocity/mdp/__pycache__/curriculums.cpython-313.pyc b/src/walter_rl/tasks/velocity/mdp/__pycache__/curriculums.cpython-313.pyc
+index 4e6b3d1..e835ec8 100644
+Binary files a/src/walter_rl/tasks/velocity/mdp/__pycache__/curriculums.cpython-313.pyc and b/src/walter_rl/tasks/velocity/mdp/__pycache__/curriculums.cpython-313.pyc differ
+diff --git a/src/walter_rl/tasks/velocity/mdp/__pycache__/rewards.cpython-313.pyc b/src/walter_rl/tasks/velocity/mdp/__pycache__/rewards.cpython-313.pyc
+index d85334b..85ca47f 100644
+Binary files a/src/walter_rl/tasks/velocity/mdp/__pycache__/rewards.cpython-313.pyc and b/src/walter_rl/tasks/velocity/mdp/__pycache__/rewards.cpython-313.pyc differ
+diff --git a/src/walter_rl/tasks/velocity/mdp/curriculums.py b/src/walter_rl/tasks/velocity/mdp/curriculums.py
+index bd39a4c..c40f63e 100644
+--- a/src/walter_rl/tasks/velocity/mdp/curriculums.py
++++ b/src/walter_rl/tasks/velocity/mdp/curriculums.py
+@@ -75,3 +75,94 @@ def terrain_levels_hold_max(
+       if mask.any():
+         result[name] = torch.mean(levels[mask].float())
+   return result
++
++
++_INVERTED_STAIRS = "pyramid_stairs_inv"
++_HARD_INVERTED_STAIRS_FRACTION = 0.8
++_PIN_MASK_ATTR = "_hard_inverted_stairs_mask"
++
++
++def wrap_terrain_levels(func):
++  """Return a curriculum that keeps most inverted stairs on the hardest row.
++
++  The wrapped update still promotes and demotes. Afterwards, 80% of the
++  environments on ``pyramid_stairs_inv`` are put back on the top row. The
++  same environments stay pinned for the whole run.
++  """
++
++  def terrain_levels(env, env_ids, **params):
++    result = func(env, env_ids, **params)
++    _force_hard_inverted_stairs(env, env_ids)
++    _refresh_terrain_level_stats(env, result)
++    return result
++
++  return terrain_levels
++
++
++def _force_hard_inverted_stairs(env, env_ids) -> None:
++  """Snap the pinned inverted-stair envs in this reset onto the top row."""
++  terrain = env.scene.terrain
++  if terrain is None or terrain.cfg.terrain_generator is None:
++    return
++  if terrain.terrain_origins is None or terrain.max_terrain_level < 1:
++    return
++  pinned = _pinned_this_reset(terrain, env_ids)
++  if not bool(pinned.any()):
++    return
++  hard_row = terrain.max_terrain_level - 1
++  terrain.terrain_levels[pinned] = hard_row
++  terrain.env_origins[pinned] = terrain.terrain_origins[
++    terrain.terrain_levels[pinned], terrain.terrain_types[pinned]
++  ]
++
++
++def _pinned_this_reset(terrain, env_ids) -> torch.Tensor:
++  """Boolean mask of pinned inverted-stair envs included in ``env_ids``."""
++  active = torch.zeros_like(_pin_mask(terrain))
++  active[env_ids] = True
++  return _pin_mask(terrain) & active
++
++
++def _pin_mask(terrain) -> torch.Tensor:
++  """Stable 80% of the inverted-stair column, chosen once."""
++  stored = getattr(terrain, _PIN_MASK_ATTR, None)
++  if stored is not None:
++    return stored
++  mask = torch.zeros(
++    terrain.terrain_levels.shape[0],
++    dtype=torch.bool,
++    device=terrain.terrain_levels.device,
++  )
++  names = list(terrain.cfg.terrain_generator.sub_terrains.keys())
++  if _INVERTED_STAIRS in names:
++    column = names.index(_INVERTED_STAIRS)
++    ids = (terrain.terrain_types == column).nonzero(as_tuple=False).flatten()
++    n_pin = int(round(_HARD_INVERTED_STAIRS_FRACTION * ids.numel()))
++    if n_pin > 0:
++      mask[ids[:n_pin]] = True
++  setattr(terrain, _PIN_MASK_ATTR, mask)
++  return mask
++
++
++def _refresh_terrain_level_stats(env, result: dict[str, torch.Tensor]) -> None:
++  """Rewrite logged level means after the inverted-stair pin."""
++  terrain = env.scene.terrain
++  if terrain is None or terrain.terrain_origins is None:
++    return
++  levels = terrain.terrain_levels.float()
++  if "mean" in result:
++    result["mean"] = torch.mean(levels)
++  if "max" in result:
++    result["max"] = torch.max(levels)
++  generator = terrain.cfg.terrain_generator
++  if generator is None:
++    return
++  names = list(generator.sub_terrains.keys())
++  if terrain.terrain_origins.shape[1] != len(names):
++    return
++  for index, name in enumerate(names):
++    if name not in result:
++      continue
++    mask = terrain.terrain_types == index
++    if mask.any():
++      result[name] = torch.mean(levels[mask])
+diff --git a/src/walter_rl/tasks/velocity/mdp/rewards.py b/src/walter_rl/tasks/velocity/mdp/rewards.py
+index 7a16fad..a7c896f 100644
+--- a/src/walter_rl/tasks/velocity/mdp/rewards.py
++++ b/src/walter_rl/tasks/velocity/mdp/rewards.py
+@@ -2,14 +2,221 @@
+ 
+ from __future__ import annotations
+ 
++import math
++
+ import torch
+ 
+ from mjlab.entity import Entity
+ from mjlab.envs import ManagerBasedRlEnv
++from mjlab.managers.manager_base import ManagerTermBase
++from mjlab.managers.reward_manager import RewardTermCfg
+ from mjlab.managers.scene_entity_config import SceneEntityCfg
+ from mjlab.sensor import ContactSensor
++from mjlab.utils.lab_api.math import quat_apply_inverse, yaw_quat
++
++from walter_rl.control.full_body_pd.gains import TumbleGains
+ 
+ _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
++# Longitudinal sample of the torso scan. Matches ``_TERRAIN_SCAN_RESOLUTION``.
++_SCAN_SPACING_M = 0.1
++# Forward edge is 1.6 m (size 2.4 m, offset 0.4 m): bins at 0.1, 0.2, ..., 1.6.
++_FORWARD_BIN_COUNT = 16
++_MATCH_STEP_FULL_M = 0.04
++_MATCH_STEP_OFF_M = 0.08
++_PD_MIN_FORWARD_CMD = TumbleGains().min_forward_cmd
++_PD_TUMBLE_RATE = TumbleGains().rate
++
++
++def track_teacher_action(env: ManagerBasedRlEnv, std: float) -> torch.Tensor:
++  """Reward copying the full-body PD action from the pre-step state.
++
++  The kernel is in ``[0, 1]``. ``gated_track_teacher_action`` multiplies it
++  by the forward-step gate. On flat ground that product still peaks at 1.
++  """
++  student = env.action_manager.action
++  error = torch.mean(torch.square(student - _teacher_action(env)), dim=-1)
++  return torch.exp(-error / std**2)
++
++
++def teacher_action_mse(env: ManagerBasedRlEnv) -> torch.Tensor:
++  """Mean squared gap between the student action and the PD teacher."""
++  student = env.action_manager.action
++  return torch.mean(torch.square(student - _teacher_action(env)), dim=-1)
++
++
++def _teacher_action(env: ManagerBasedRlEnv) -> torch.Tensor:
++  """PD action snapshotted before physics. Training envs set this attribute."""
++  teacher = getattr(env, "teacher_action", None)
++  if not isinstance(teacher, torch.Tensor):
++    raise RuntimeError(
++      "The teacher reward needs TeacherStudentEnv. It records the PD action "
++      "before the physics step, which is the state the student acted on."
++    )
++  return teacher
++
++
++def match_gate_from_step(step: torch.Tensor) -> torch.Tensor:
++  """Map a forward height change to the teacher-match gate.
++
++  ``step`` is the largest absolute jump between consecutive occupied
++  bins. The gate is 1 at or below 0.04 m and 0 at or above 0.08 m, linear
++  in between. A hard slope near 0.045 m per sample stays near full match.
++  A stair face or box at or above 0.08 m, up or down, turns the match off.
++  """
++  span = _MATCH_STEP_OFF_M - _MATCH_STEP_FULL_M
++  return ((_MATCH_STEP_OFF_M - step) / span).clamp(0.0, 1.0)
++
++
++def forward_scan_step(
++  x: torch.Tensor,
++  z: torch.Tensor,
++  valid: torch.Tensor,
++) -> torch.Tensor:
++  """Largest absolute jump between consecutive occupied forward bins.
++
++  ``x`` and ``z`` are torso-yaw-frame coordinates in meters, shape ``[B, N]``.
++  ``valid`` marks ray hits. Rays at ``x <= 0`` are behind the torso and are
++  ignored. Empty bins are skipped, so a miss is not a step. A drop counts
++  the same as a rise.
++  """
++  usable = valid & torch.isfinite(x) & torch.isfinite(z)
++  # meshgrid(indexing="xy") flattens as iy * 25 + ix. x = -0.8 + 0.1 * ix,
++  # so the torso (x <= 0) is ix <= 8 and bin b = round(x / 0.1) - 1 is ix - 9.
++  bin_id = torch.round(x / _SCAN_SPACING_M).long() - 1
++  forward = usable & (bin_id >= 0) & (bin_id < _FORWARD_BIN_COUNT)
++  return _max_occupied_jump(_forward_bin_medians(z, bin_id, forward))
++
++
++def forward_height_step(
++  env: ManagerBasedRlEnv,
++  sensor_name: str = "terrain_scan",
++) -> torch.Tensor:
++  """Largest absolute height change, in meters, in front of the torso.
++
++  Reads ``terrain_scan`` ray hits. The ``height_scan`` observation is scaled
++  and, on the actor, noised, so it is not the gate input.
++  """
++  x, z, valid = _yaw_frame_scan(env, sensor_name)
++  return forward_scan_step(x, z, valid)
++
++
++def gated_track_teacher_action(
++  env: ManagerBasedRlEnv,
++  std: float,
++  sensor_name: str = "terrain_scan",
++) -> torch.Tensor:
++  """Scale the PD action match by the forward-step gate.
++
++  The kernel is ``track_teacher_action``. Flat ground and slopes keep the
++  match. A forward jump of 0.08 m or more, up or down, zeros it. The
++  per-environment gate lives here because the config weight is a scalar.
++  """
++  gate = match_gate_from_step(forward_height_step(env, sensor_name))
++  return track_teacher_action(env, std) * gate
++
++
++def predictive_knee_tumble(
++  env: ManagerBasedRlEnv,
++  command_name: str = "twist",
++  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
++  sensor_name: str = "terrain_scan",
++) -> torch.Tensor:
++  """Reward forward knee rate when a step is still ahead in the scan.
++
++  The command gate is 0 below the PD ``min_forward_cmd`` and otherwise the
++  sign of the forward command. Knee rate is the mean of the positive rates
++  divided by ``TumbleGains.rate``. The scan gate is one minus the
++  teacher-match gate. A forward command and an open gate still pay when
++  measured speed along that command is at or below zero. A flat scan keeps
++  the gate shut. The speed-lag integral is not used.
++  """
++  asset: Entity = env.scene[asset_cfg.name]
++  command = env.command_manager.get_command(command_name)
++  assert command is not None, f"Command '{command_name}' not found."
++  cmd_x = command[:, 0]
++  pref = torch.sign(cmd_x)
++  has_command = cmd_x.abs() >= _PD_MIN_FORWARD_CMD
++  pref = torch.where(has_command, pref, torch.zeros_like(pref))
++  knee_vel = asset.data.joint_vel[:, asset_cfg.joint_ids]
++  aligned = torch.relu(knee_vel * pref.unsqueeze(-1)).mean(dim=-1)
++  aligned = aligned / _PD_TUMBLE_RATE
++  body_vx = asset.data.root_link_lin_vel_b[:, 0]
++  tumble_gate = 1.0 - match_gate_from_step(forward_height_step(env, sensor_name))
++  progress = _stall_progress(body_vx * pref, tumble_gate)
++  return aligned * progress * tumble_gate
++
++
++def _yaw_frame_scan(
++  env: ManagerBasedRlEnv,
++  sensor_name: str,
++) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
++  """Hit x, z in the torso yaw frame, and the valid-hit mask."""
++  sensor = env.scene[sensor_name]
++  hit = sensor.data.hit_pos_w
++  origin = sensor.data.frame_pos_w[:, 0]
++  yaw = yaw_quat(sensor.data.frame_quat_w[:, 0])
++  yaw = yaw[:, None, :].expand(hit.shape[0], hit.shape[1], 4)
++  local = quat_apply_inverse(yaw, hit - origin[:, None, :])
++  return local[..., 0], local[..., 2], sensor.data.distances >= 0
++
++
++def _forward_bin_medians(
++  z: torch.Tensor,
++  bin_id: torch.Tensor,
++  forward: torch.Tensor,
++) -> torch.Tensor:
++  """Median height of each forward bin. Empty bins are NaN."""
++  columns = [
++    _masked_median(z, forward & (bin_id == index))
++    for index in range(_FORWARD_BIN_COUNT)
++  ]
++  return torch.stack(columns, dim=-1)
++
++
++def _masked_median(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
++  """Per-row median of ``values`` on ``mask``. Empty rows are NaN."""
++  count = mask.sum(dim=-1)
++  filled = torch.where(mask, values, torch.full_like(values, float("inf")))
++  ordered = filled.sort(dim=-1).values
++  last = values.shape[-1] - 1
++  lower = ((count - 1) // 2).clamp(0, last)
++  upper = (count // 2).clamp(0, last)
++  rows = torch.arange(values.shape[0], device=values.device)
++  median = (ordered[rows, lower] + ordered[rows, upper]) * 0.5
++  return torch.where(count > 0, median, torch.full_like(median, float("nan")))
++
++
++def _stall_progress(along: torch.Tensor, tumble_gate: torch.Tensor) -> torch.Tensor:
++  """Speed scale for ``predictive_knee_tumble``.
++
++  Positive speed along the command is clamped at 1. Non-positive speed
++  still counts as full progress when the scan gate is open, because a
++  stall at a step used to zero the term and leave only the lag reward.
++  A shut gate does not get that credit. The caller multiplies by the gate,
++  so a flat scan still pays nothing.
++  """
++  progress = torch.relu(along).clamp(max=1.0)
++  stalled_on_step = (along <= 0) & (tumble_gate > 0)
++  return torch.where(stalled_on_step, torch.ones_like(progress), progress)
++
++
++def _max_occupied_jump(heights: torch.Tensor) -> torch.Tensor:
++  """Max absolute jump between consecutive finite columns."""
++  step = torch.zeros(heights.shape[0], device=heights.device, dtype=heights.dtype)
++  previous = torch.zeros_like(step)
++  has_previous = torch.zeros(
++    heights.shape[0], dtype=torch.bool, device=heights.device
++  )
++  for index in range(heights.shape[-1]):
++    column = heights[:, index]
++    is_occupied = torch.isfinite(column)
++    filled = torch.where(is_occupied, column, previous)
++    jump = (filled - previous).abs()
++    can_compare = has_previous & is_occupied
++    step = torch.where(can_compare, torch.maximum(step, jump), step)
++    previous = filled
++    has_previous = has_previous | is_occupied
++  return step
+ 
+ 
+ def track_lin_vel_xy(
+@@ -31,6 +238,75 @@ def track_lin_vel_xy(
+   return torch.exp(-xy_error / std**2)
+ 
+ 
++def integrate_speed_lag(
++  lag: torch.Tensor,
++  cmd_x: torch.Tensor,
++  speed_x: torch.Tensor,
++  dt: float,
++  gains: TumbleGains,
++) -> torch.Tensor:
++  """Missed forward distance, in meters.
++
++  Same update as ``FullBodyPdController._integrate_speed_lag``. Add
++  ``v_cmd_x - v_x`` only while the forward command exceeds
++  ``min_forward_cmd`` and the shortfall exceeds ``min_speed_error``.
++  Otherwise leak toward zero at ``leak``, and never exceed ``cap``.
++  """
++  error = cmd_x - speed_x
++  counting = (cmd_x > gains.min_forward_cmd) & (error > gains.min_speed_error)
++  leaked = lag * math.exp(-gains.leak * dt)
++  return torch.where(counting, lag + error * dt, leaked).clamp(max=gains.cap)
++
++
++class KneeStuckTumble(ManagerTermBase):
++  """Reward forward knee speed in proportion to missed forward distance.
++
++  The integral is the PD stall integral. Positive knee rate is a forward
++  tumble: it drops the front wheel. The return multiplies that integral by
++  each knee's forward rate and sums them, so knee spin pays only while stuck.
++  """
++
++  def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
++    super().__init__(env)
++    self._speed_lag = torch.zeros(env.num_envs, device=env.device)
++    self._gains = TumbleGains()
++    self._command_name = str(cfg.params["command_name"])
++    self._asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
++
++  def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
++    """Drop missed distance on environments that just ended."""
++    self._speed_lag[slice(None) if env_ids is None else env_ids] = 0.0
++
++  def __call__(
++    self,
++    env: ManagerBasedRlEnv,
++    command_name: str,
++    asset_cfg: SceneEntityCfg,
++  ) -> torch.Tensor:
++    del command_name, asset_cfg
++    self._update_lag(env)
++    knee_vel = _knee_velocity(env, self._asset_cfg)
++    return self._speed_lag * torch.relu(knee_vel).sum(dim=-1)
++
++  def _update_lag(self, env: ManagerBasedRlEnv) -> None:
++    """Step the stall integral from the command active during this step."""
++    twist = env.command_manager.get_term(self._command_name)
++    asset: Entity = env.scene[self._asset_cfg.name]
++    self._speed_lag = integrate_speed_lag(
++      self._speed_lag,
++      twist.vel_command_b[:, 0],
++      asset.data.root_link_lin_vel_b[:, 0],
++      env.step_dt,
++      self._gains,
++    )
++
++
++def _knee_velocity(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
++  """Joint velocity of the configured knees."""
++  asset: Entity = env.scene[asset_cfg.name]
++  return asset.data.joint_vel[:, asset_cfg.joint_ids]
++
++
+ def knee_tumble(
+   env: ManagerBasedRlEnv,
+   velocity_scale: float,
+diff --git a/uv.lock b/uv.lock
+index 0976a11..14cb719 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -2,8 +2,10 @@ version = 1
+ revision = 3
+ requires-python = ">=3.12, <3.14"
+ resolution-markers = [
+-    "sys_platform != 'darwin'",
+-    "sys_platform == 'darwin'",
++    "python_full_version >= '3.13' and sys_platform != 'darwin'",
++    "python_full_version < '3.13' and sys_platform != 'darwin'",
++    "python_full_version >= '3.13' and sys_platform == 'darwin'",
++    "python_full_version < '3.13' and sys_platform == 'darwin'",
+ ]
+ 
+ [[package]]
+@@ -15,6 +17,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/58/0a/a10b45aab35b175aded078a462dc8d0c698f5b13946e7cb0869097b78bb6/absl_py-2.5.0-py3-none-any.whl", hash = "sha256:0f17b89f2a4eaaedc4f28c622998aa690564b3012a396a4ffad0821007fe03ba", size = 137410, upload-time = "2026-07-03T10:57:46.735Z" },
+ ]
+ 
++[[package]]
++name = "annotated-types"
++version = "0.8.0"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz", hash = "sha256:13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7", size = 15893, upload-time = "2026-07-23T20:16:13.995Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl", hash = "sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0", size = 13427, upload-time = "2026-07-23T20:16:12.938Z" },
++]
++
+ [[package]]
+ name = "asttokens"
+ version = "3.0.2"
+@@ -95,6 +106,24 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/fc/ad/d07d7862a62ffa6d79d68074d14823243dd235a77c45262acbf6adeb28bf/charset_normalizer-3.5.2-py3-none-any.whl", hash = "sha256:b6b751274acb69d77b3323d6b7dbaa3c7fdfc1eb829b7eb61d262f32e1af9685", size = 68872, upload-time = "2026-09-30T04:39:21.828Z" },
+ ]
+ 
++[[package]]
++name = "click"
++version = "8.5.0"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34", size = 382235, upload-time = "2026-08-26T13:33:14.56Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360", size = 125251, upload-time = "2026-08-26T13:33:12.928Z" },
++]
++
++[[package]]
++name = "cloudpickle"
++version = "3.1.2"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/27/fb/576f067976d320f5f0114a8d9fa1215425441bb35627b1993e5afd8111e5/cloudpickle-3.1.2.tar.gz", hash = "sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414", size = 22330, upload-time = "2025-11-03T09:25:26.604Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl", hash = "sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a", size = 22228, upload-time = "2025-11-03T09:25:25.534Z" },
++]
++
+ [[package]]
+ name = "colorama"
+ version = "0.4.6"
+@@ -295,6 +324,30 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/6c/c0/a98505f18594f1bce828bb159cec0fcf9860562f1a2c85913409fc8f3d9e/fsspec-2026.9.0-py3-none-any.whl", hash = "sha256:8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f", size = 221738, upload-time = "2026-09-18T17:50:41.341Z" },
+ ]
+ 
++[[package]]
++name = "gitdb"
++version = "4.0.12"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "smmap" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/72/94/63b0fc47eb32792c7ba1fe1b694daec9a63620db1e313033d18140c2320a/gitdb-4.0.12.tar.gz", hash = "sha256:5ef71f855d191a3326fcfbc0d5da835f26b13fbcba60c32c21091c349ffdb571", size = 394684, upload-time = "2025-01-02T07:20:46.413Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/a0/61/5c78b91c3143ed5c14207f463aecfc8f9dbb5092fb2869baf37c273b2705/gitdb-4.0.12-py3-none-any.whl", hash = "sha256:67073e15955400952c6565cc3e707c554a4eea2e428946f7a4c162fab9bd9bcf", size = 62794, upload-time = "2025-01-02T07:20:43.624Z" },
++]
++
++[[package]]
++name = "gitpython"
++version = "3.2.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "gitdb" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/6e/2d/6f6e649818da44d4499604802c89329b8d9799687a124e3a5e467a643336/gitpython-3.2.0.tar.gz", hash = "sha256:fb92310af6844d96adc95ca066ed2e617c00e1dbd146a326626c81e72e18cc2e", size = 238091, upload-time = "2026-09-30T09:10:32.65Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/fa/48/f36d233ce749d1bb880cb5e6f8bb171dc2effabc7435c31da604d831b3ec/gitpython-3.2.0-py3-none-any.whl", hash = "sha256:bd70c5ec05cd2b797423e7eb312147d2458d3cca92085888fba2213f85905537", size = 228537, upload-time = "2026-09-30T09:10:31.159Z" },
++]
++
+ [[package]]
+ name = "glfw"
+ version = "2.10.2"
+@@ -311,6 +364,49 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/e0/6c/4ca5f3ab85a8d7f612ce857208726e9b834e54e559751e3d4f98cc2f7509/glfw-2.10.2-py2.py3-none-win_amd64.whl", hash = "sha256:15fd0666cd8f1b0ecb535c3abb712b8ddda053bf8d16de2353b1c6ced0e65402", size = 564433, upload-time = "2026-07-21T14:42:35.465Z" },
+ ]
+ 
++[[package]]
++name = "googleapis-common-protos"
++version = "1.75.5"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "protobuf" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/8d/2b/6ce81972d5c8cab9705fddce3153be63222d9e12fd96f8baba5038a744dd/googleapis_common_protos-1.75.5.tar.gz", hash = "sha256:c7a866fc34ed29a3b10af627a4b9b1dc2433313ca6e959f0ae4feb132047ed72", size = 156513, upload-time = "2026-09-29T19:26:14.863Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/65/b9/6b29500a1c581ff4d77fd83c6568d068bee06f1b139fb6eb0a4f2d4bce8a/googleapis_common_protos-1.75.5-py3-none-any.whl", hash = "sha256:d7285525c23039db98f2463e6d5a4f9b958b94d497f03a844ece3259c4e72d5d", size = 307737, upload-time = "2026-09-29T19:25:48.735Z" },
++]
++
++[[package]]
++name = "grpcio"
++version = "1.84.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/3f/4f/4435c0aae54657258d9cfcba78598f3d9e5fe4c82ff18d78558567b90faf/grpcio-1.84.0.tar.gz", hash = "sha256:19aaf172fc2edbefccce3f6e92c5150975dbe56c45744e9e87cf72ebdf85bfbe", size = 13493876, upload-time = "2026-09-14T06:59:33.291Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/0a/c1/4c9a2e0e6b0aaf02781404cad2f79211f989f2c827cf672a4a48d1604d3e/grpcio-1.84.0-cp312-cp312-linux_armv7l.whl", hash = "sha256:b5c6f20d657ae09ae4e30d9d3a21edd13f1219d58cc6f999b9d1bb63be9c1baa", size = 6415756, upload-time = "2026-09-14T06:57:39.345Z" },
++    { url = "https://files.pythonhosted.org/packages/b1/57/131e7007bdee9acb77a8dbe8a16fa9fef75f88c1695242d8ee0993ac2d3d/grpcio-1.84.0-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:406583b4e8fb2282ebd392e12b963e601c1f82e07125a8c2cb5b144e7e024796", size = 12339195, upload-time = "2026-09-14T06:57:42.373Z" },
++    { url = "https://files.pythonhosted.org/packages/db/d1/a7b7cda98fcab9b3d2916204a872d87371158a7a34e41768f524584fb64d/grpcio-1.84.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:fbdbcd06986ede3ce584083b1dc2afe6808e8943e5cf50ad11183c03aceda25a", size = 6984468, upload-time = "2026-09-14T06:57:45.035Z" },
++    { url = "https://files.pythonhosted.org/packages/19/81/c5be83e3ac9416f73c4c51fe1ea9c41a0c42fc3509e3505faa46f5046abe/grpcio-1.84.0-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:23e6e8e8a75cff88e0a793bfd3becea03a13e2763ae90c1ff573bc19ca5b429a", size = 7749432, upload-time = "2026-09-14T06:57:47.395Z" },
++    { url = "https://files.pythonhosted.org/packages/a0/bf/258cd7c0a7ed92745dc93c31666d462d05b702807a689744bd49fb833bde/grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:b44f0a0fc7bc6677d38cc80bca1a32814ce6c8f200fb8b3c1a61c9d77eaefbf3", size = 7156115, upload-time = "2026-09-14T06:57:49.657Z" },
++    { url = "https://files.pythonhosted.org/packages/2b/4b/7f829418dbfcf91b875e55e2973f1059a95decb4f081313416317ef04ec1/grpcio-1.84.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:210e4c32f907045eb8158273e60c6ab69a3947697df6245dbda381f26c59485b", size = 7708010, upload-time = "2026-09-14T06:57:52.496Z" },
++    { url = "https://files.pythonhosted.org/packages/34/f0/9932e2fec6a04205f8bf3f8f4d2020479dcdac88feb6f93822ed31bf0eba/grpcio-1.84.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:a71d24f40b0cc6798feaa978c7411dc1135b7018e9fc0442db611c139bf58344", size = 8759980, upload-time = "2026-09-14T06:57:55.312Z" },
++    { url = "https://files.pythonhosted.org/packages/2c/5c/b67407c6dbc480dfc0715f6eccdb1061e7c88d85f9a330a241d357a538c5/grpcio-1.84.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:f6c972474ce691aca74e58d17625450cef153dc4760364cadeb167983ea6d589", size = 8124904, upload-time = "2026-09-14T06:57:58.569Z" },
++    { url = "https://files.pythonhosted.org/packages/02/37/2bfdae2df8dfcfc0df619b628e0c7153ce703adae827243f44720322ccc1/grpcio-1.84.0-cp312-cp312-win32.whl", hash = "sha256:0d532ade4486dad9b302ffa4d4683d67561051c26d17c4023322845e9fa10140", size = 4478915, upload-time = "2026-09-14T06:58:00.714Z" },
++    { url = "https://files.pythonhosted.org/packages/85/2c/309268b7b39f6deb2342f634841e105623a0b67982e8b10ec516782ff1c6/grpcio-1.84.0-cp312-cp312-win_amd64.whl", hash = "sha256:49717e857899f4136d7657bf5aded61ac479110a075438290923a4d86af7cd02", size = 5253534, upload-time = "2026-09-14T06:58:03.336Z" },
++    { url = "https://files.pythonhosted.org/packages/5d/51/40f99701adb01d4e5316a2aaf13838da1a24d5c879cd8c95156d7c364454/grpcio-1.84.0-cp313-cp313-linux_armv7l.whl", hash = "sha256:209414080da8c20af94df1395b635da52dd57b5edc9e917e1deca0dc1c4bb55e", size = 6427619, upload-time = "2026-09-14T06:58:06.025Z" },
++    { url = "https://files.pythonhosted.org/packages/c5/4b/ed8e22a1237e6b2be6ef4f221d074a5b0e0dd8a0da8c944c04aea731f0eb/grpcio-1.84.0-cp313-cp313-macosx_11_0_universal2.whl", hash = "sha256:e41c3993eee896c617dbd8a505085d28b6e84a0445ed9a1f40f95808473cf678", size = 12336549, upload-time = "2026-09-14T06:58:08.583Z" },
++    { url = "https://files.pythonhosted.org/packages/d3/50/00165b05cd73f45996748ea67ce9e55d08936f2fea94a7fd8541cc2d0e54/grpcio-1.84.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:fff5ef3fe1bba7d6147e5f19e01e5e122ac2c076486887ddcb8d42e663400fbe", size = 6989458, upload-time = "2026-09-14T06:58:11.884Z" },
++    { url = "https://files.pythonhosted.org/packages/26/38/d0486230e684d916f97429a53041db88410e662a38f2a8d09e2d90375840/grpcio-1.84.0-cp313-cp313-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:b8c62888c3e49debf37ad9773e3c02f77b0c1e811f8fb0962f2b6c3bbab5b97a", size = 7757778, upload-time = "2026-09-14T06:58:14.849Z" },
++    { url = "https://files.pythonhosted.org/packages/da/56/548a643decb059ca244499c675ae2c13a15f523ba94592c2774bd80a13c1/grpcio-1.84.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:986e9751d416d7a6eaa2fecdac38da63153d63a4b340ba7d624889c490451500", size = 7159572, upload-time = "2026-09-14T06:58:17.87Z" },
++    { url = "https://files.pythonhosted.org/packages/db/f5/42caac81a79ec680f1f7a8eaf7ca90d2f93936ce0c3a073141ba96757f77/grpcio-1.84.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:5933a052946873d01a42119a05420d669bdca436aeba2d1851988ccb12b421c0", size = 7710547, upload-time = "2026-09-14T06:58:20.607Z" },
++    { url = "https://files.pythonhosted.org/packages/57/a4/828ad990b2410fee0a55cc73aa1bf98eb5b911c54847374ef4f24b9e877b/grpcio-1.84.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:e094dd21f077af8194923fc263cad872eaa1802bb0156fd7e5ae18e99cd86715", size = 8761519, upload-time = "2026-09-14T06:58:23.875Z" },
++    { url = "https://files.pythonhosted.org/packages/d5/a5/1f91af098919eaf5d80d5a61126ad9fae074e5190c25a3014ce1d8d0d890/grpcio-1.84.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:08735e3d08d24ab3132cf87e2e5dea8746cabcc7d676c2b0b7362f195feef9d9", size = 8121424, upload-time = "2026-09-14T06:58:27.006Z" },
++    { url = "https://files.pythonhosted.org/packages/8c/8f/77fd4a7a913b636785479922349c4cb98d94d05d15652e556b3ca0df6663/grpcio-1.84.0-cp313-cp313-win32.whl", hash = "sha256:70bb4ce8be0c5606bec259cbd7152374470396413b7863a658a08c849e6b29ff", size = 4477974, upload-time = "2026-09-14T06:58:29.528Z" },
++    { url = "https://files.pythonhosted.org/packages/d0/9a/1fa59ddbfc8898e5518d1447e46f771f387f0ed6132ad531395338e51a5c/grpcio-1.84.0-cp313-cp313-win_amd64.whl", hash = "sha256:b61692f0069b3eee2fc8a3a1b7f6c044df9e03fede6ce69b3ca832e1c39f26c5", size = 5255326, upload-time = "2026-09-14T06:58:31.781Z" },
++]
++
+ [[package]]
+ name = "idna"
+ version = "3.20"
+@@ -347,6 +443,18 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/2c/c6/fa760e12a2483469e2bf5058c5faff664acf66cadb4df2ad6205b016a73d/imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl", hash = "sha256:02fa47c83703c37df6bfe4896aab339013f62bf02c5ebf2dce6da56af04ffc0a", size = 31246824, upload-time = "2025-01-16T21:34:28.6Z" },
+ ]
+ 
++[[package]]
++name = "importlib-metadata"
++version = "9.0.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "zipp" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/6f/7e/1e7e8dc30634b93ebb3d58a3dea569ad146e656218d3960ab04f62047b29/importlib_metadata-9.0.1.tar.gz", hash = "sha256:ab830580bc0ef3db61ce8fae716389e5462b67e033018bab6d8f80ef17172f99", size = 59124, upload-time = "2026-08-28T15:30:34.646Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/b3/55/ecca97ae19075f1fac62def77731e7f535e6c1fb8f92ff08160c5e6dade8/importlib_metadata-9.0.1-py3-none-any.whl", hash = "sha256:bba5600596a7e21f3eef53281cf28d6a5195634d2f2b78ff9501a3272c6eaab0", size = 27920, upload-time = "2026-08-28T15:30:33.433Z" },
++]
++
+ [[package]]
+ name = "ipython"
+ version = "9.17.1"
+@@ -448,6 +556,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/a6/c1/69f00d627949580e43d57af0aa465df46868d7c29801c137a55374101294/kiwisolver-1.5.1-graalpy312-graalpy250_312_native-win_amd64.whl", hash = "sha256:a5a00665d1a0e26763a7338d7e911d4598fbc1d50dd0d6b7919b7dc6c5d6569f", size = 73362, upload-time = "2026-08-28T10:28:12.449Z" },
+ ]
+ 
++[[package]]
++name = "markdown"
++version = "3.11"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/f8/4f/700155c8c20d9e655dd0732b5fc3c7614f291b9148da271d7388e50bf774/markdown-3.11.tar.gz", hash = "sha256:180224db6aed87ba9ce1f2781ebcd5826253de8ff637112090e24b84502bbf9f", size = 485623, upload-time = "2026-09-25T13:46:23.473Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/ec/1e/32971905a7ab47f8b66866ed949fa48b104ba1c4a6fa57794c4f2c4b2cb8/markdown-3.11-py3-none-any.whl", hash = "sha256:cd6c89e7eb308c8b332ed673215a52d208a43f8bacc030b1419376129408719e", size = 111296, upload-time = "2026-09-25T13:46:22.163Z" },
++]
++
+ [[package]]
+ name = "markdown-it-py"
+ version = "4.2.0"
+@@ -634,6 +751,27 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/9c/c2/4534d678ad1b3f7dee6fd83110112800287be21ba007d988abb9ddc8e0ac/mjviser-0.0.14-py3-none-any.whl", hash = "sha256:4b09f8e90506fc4a71d76fc628872147157947e9292428213ab78cfe137c9a26", size = 32296, upload-time = "2026-05-07T03:35:14.252Z" },
+ ]
+ 
++[[package]]
++name = "ml-dtypes"
++version = "0.6.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "numpy" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/12/72/307d7c4bd0600601c7133fba5cb78af7db968152951c1cd473abb1cda782/ml_dtypes-0.6.0.tar.gz", hash = "sha256:5e60251d32ced5598972e4d5e06a2f044341f9291402551a3f6f0ec44f9299b0", size = 3032327, upload-time = "2026-08-13T14:14:40.215Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/84/6a/441eb053b078954f7fea284dfb288701884d0a1404d39babb858e1649023/ml_dtypes-0.6.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:5359c588cc62de6f78d7430f06b65853d884955494d86d6ad90b6dd64a3f3a08", size = 565447, upload-time = "2026-08-13T14:14:01.737Z" },
++    { url = "https://files.pythonhosted.org/packages/ed/cf/87e8a6c57eed63a91782a0d229856ddf73e138ce004dd71e2799a9dcdb33/ml_dtypes-0.6.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:37da32aa97749251025666d62372775019594577b9c9e9cfda83bed48d778fdb", size = 360227, upload-time = "2026-08-13T14:14:02.938Z" },
++    { url = "https://files.pythonhosted.org/packages/c7/f9/7d76c1eae866f5d4636401b31b6d6dd90e4b4ced1fa7cfdfcca9c60e4bd3/ml_dtypes-0.6.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3b4a480aa8fd54a1805b8ac10f3f91763926a74f73c0c364c10f9231854f4170", size = 409890, upload-time = "2026-08-13T14:14:04.248Z" },
++    { url = "https://files.pythonhosted.org/packages/ba/db/9c61ec2760b5cbfb1c6558d5c991a6d8fd3271053c32db20506a9a90272b/ml_dtypes-0.6.0-cp312-cp312-win_amd64.whl", hash = "sha256:2a3e9d53925597fbffafd2a37048dadeddd0bdaba58058f6ae0869ed709a184d", size = 439333, upload-time = "2026-08-13T14:14:05.501Z" },
++    { url = "https://files.pythonhosted.org/packages/6a/57/780ca3e5ab135b9fbdd8e5441abf5f801b30398371b691291e05ab9834c0/ml_dtypes-0.6.0-cp312-cp312-win_arm64.whl", hash = "sha256:6eaed129a4afe90694b8685e2f9b6294849f5eda4af9a15be83a4326eeebd775", size = 552268, upload-time = "2026-08-13T14:14:06.866Z" },
++    { url = "https://files.pythonhosted.org/packages/50/51/fd1582b8f5ed8a9e7be0e161a6ea0dff70cb280479a12178df0b3a72700e/ml_dtypes-0.6.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:084dfe51a7ad58b171f05115f8226ed4233a454a1611371947e806e76f0c638d", size = 565468, upload-time = "2026-08-13T14:14:08.5Z" },
++    { url = "https://files.pythonhosted.org/packages/d2/22/20fd70ca6ed12446cb92d5b2a7745bd185f9d8b8cdeeadad976574398e6b/ml_dtypes-0.6.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:28d676428b104bb9717b0928bc5c5129f2d6b51b6727587cc4289e7bf8713cb5", size = 360232, upload-time = "2026-08-13T14:14:09.873Z" },
++    { url = "https://files.pythonhosted.org/packages/89/a5/da8ae6c6f1babe4b68e3e55d43d39b529e29774f10e0910671a6b8c86eb8/ml_dtypes-0.6.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:26b1f1fa4f0435a2946859823f6e2bf06796f1e9f10f5a05b08a5e3c8f46ff69", size = 410169, upload-time = "2026-08-13T14:14:11.036Z" },
++    { url = "https://files.pythonhosted.org/packages/e2/55/4561acefa00fa4bcbfb82ca6a48578b41f372cd7dd7cdd6eb4720abc2e5f/ml_dtypes-0.6.0-cp313-cp313-win_amd64.whl", hash = "sha256:fb87f46b4f7ad7b5d3ad8f4b452b024bd4229d44c8ff934798c1fe656210387a", size = 439357, upload-time = "2026-08-13T14:14:12.172Z" },
++    { url = "https://files.pythonhosted.org/packages/b1/5d/6a01538e507ef0ed5e879985b13a92467bf8960696fb1131f8b8cadc60ff/ml_dtypes-0.6.0-cp313-cp313-win_arm64.whl", hash = "sha256:57ed0d6b4ac5e7868361303a9c57fbcf63b768236ee14456f585dfcf260d0292", size = 552278, upload-time = "2026-08-13T14:14:13.539Z" },
++]
++
+ [[package]]
+ name = "mpmath"
+ version = "1.3.0"
+@@ -902,6 +1040,200 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/a8/64/3708a90d1ebe202ffdeb7185f878a3c84d15c2b2c31858da2ce0583e2def/nvidia_nvtx-13.0.85-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:cb7780edb6b14107373c835bf8b72e7a178bac7367e23da7acb108f973f157a6", size = 148878, upload-time = "2025-09-04T08:28:53.627Z" },
+ ]
+ 
++[[package]]
++name = "onnx"
++version = "1.23.2"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "ml-dtypes" },
++    { name = "numpy" },
++    { name = "protobuf" },
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/3f/62/bc2dfadb63ecf04cb2d65a6b17751863039d36c65de51d6a3128ab35f1e7/onnx-1.23.2.tar.gz", hash = "sha256:008cb0467b2bbee41448acc7da8b6f4e704624cb0d327a2d5adafc7ce19bc5b8", size = 6023090, upload-time = "2026-10-06T04:25:58.681Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/d7/d9/967d6f6838ad60964de912a5e7d01915282899b254460705d952f5d14c1a/onnx-1.23.2-cp312-abi3-macosx_13_0_universal2.whl", hash = "sha256:1b8680ce1e6a9a4736374a9dce4de14ea8ee05e0dccf0784a78a6e5646bdc1f6", size = 9725612, upload-time = "2026-10-06T04:25:34.299Z" },
++    { url = "https://files.pythonhosted.org/packages/f9/50/2e156ef2cae1c9f4ff01a41dffa43fc1eb7b969755055436bf6df1805d54/onnx-1.23.2-cp312-abi3-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a203efdbaabbbe8f25e854e2b2921382d6fcf4c67895656f939044b0632974e8", size = 8640515, upload-time = "2026-10-06T04:25:36.727Z" },
++    { url = "https://files.pythonhosted.org/packages/87/56/21509a657f9a73ab0ca307d325043f49ca6c4ff6bf79edeb9e159190d44d/onnx-1.23.2-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7abf381d278f31ac62487fddedc9dd42da842dce94d5d43536836ee3efdf4a2b", size = 8881633, upload-time = "2026-10-06T04:25:38.868Z" },
++    { url = "https://files.pythonhosted.org/packages/ec/ef/0a69093ffa0b999747b373c75d07182a812722a0e595d21f763a8d406260/onnx-1.23.2-cp312-abi3-pyemscripten_2026_0_wasm32.whl", hash = "sha256:e79e35e152d3095c6910ae81013bbc68679e32bfc0ca76f840968d4b6fdfb864", size = 7314844, upload-time = "2026-10-06T04:25:41.088Z" },
++    { url = "https://files.pythonhosted.org/packages/97/a3/e4d4aedd0cc6820de416bb99623fc12b9a22a387d00596bb98505de9a805/onnx-1.23.2-cp312-abi3-win32.whl", hash = "sha256:b0b8dae0d33dd8606370bc264b0b1d6e64cfdf8b83d7c676fab8eff6b88ca409", size = 7736405, upload-time = "2026-10-06T04:25:42.893Z" },
++    { url = "https://files.pythonhosted.org/packages/38/ce/102fd4a0b2a6d111a9c86745e084c4c68c0ee020eaa359a03a8d43e4646f/onnx-1.23.2-cp312-abi3-win_amd64.whl", hash = "sha256:9b382ba898a7c142a0801d03cf04ecabced96c1543c7b643a86f0928143802de", size = 7872489, upload-time = "2026-10-06T04:25:44.802Z" },
++    { url = "https://files.pythonhosted.org/packages/bd/1d/37f2c7f821f79ceed3c976bd087d16abdd2b0bba6c19475322e7a31bae59/onnx-1.23.2-cp312-abi3-win_arm64.whl", hash = "sha256:80cef0fad59524d02c21ec93f4fbccdcc6223f1c33339d597519a2d27cac19a7", size = 8047076, upload-time = "2026-10-06T04:25:46.93Z" },
++]
++
++[[package]]
++name = "onnx-ir"
++version = "1.0.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "ml-dtypes" },
++    { name = "numpy" },
++    { name = "onnx" },
++    { name = "sympy" },
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/d6/c2/61194cec0dbc5622273c0ebd592d37cc1dca0d7f1a744f02edd45ac905a3/onnx_ir-1.0.0.tar.gz", hash = "sha256:9e261f25fde8da9612ae5cb43b3b374d5ff469c04af0363cad588b2bb000b812", size = 163121, upload-time = "2026-08-11T14:49:46.895Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/91/cd/6d1637172eb59c7b18ac90ed089d1f599a11fe0e63b4db2d017f3bb38a32/onnx_ir-1.0.0-py3-none-any.whl", hash = "sha256:e578f0d608d3062866b48223616eb2d10a6d6d01f8b8faac596129034f483cc7", size = 185849, upload-time = "2026-08-11T14:49:45.524Z" },
++]
++
++[[package]]
++name = "onnxscript"
++version = "0.7.2"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "ml-dtypes" },
++    { name = "numpy" },
++    { name = "onnx" },
++    { name = "onnx-ir" },
++    { name = "packaging" },
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/0a/01/3e3fab8d643ca097ea4aa9e51246643699dfaaa0650589744fe44bc46651/onnxscript-0.7.2.tar.gz", hash = "sha256:2c664f6383d10f332a4d47b2876dcab16dba84909fe703656b19abc281fda165", size = 646719, upload-time = "2026-09-09T17:06:44.567Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/b9/3b/06260997cdc41138e58718588a6c87d0eb342bbe0dda8a6aae91d163c384/onnxscript-0.7.2-py3-none-any.whl", hash = "sha256:d0e7121c6a1eefd608058928e111cbdb76709f70d269ff0d07aee493bd1d13c9", size = 754215, upload-time = "2026-09-09T17:06:46.442Z" },
++]
++
++[[package]]
++name = "opentelemetry-api"
++version = "1.45.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/2e/02/6e0ae9cc61bd3169d401077b507b3ebc344745171e1051ab430be012dcd9/opentelemetry_api-1.45.1.tar.gz", hash = "sha256:aa38ed19bcc084ba42782a73255b3582283eced7ad6dddbd6695189e69adfb75", size = 72804, upload-time = "2026-10-06T17:32:58.133Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/1e/41/f7dcf80b81ee8e71c1a2b59f14208bc723edbd89ed027a73b175abf6348e/opentelemetry_api-1.45.1-py3-none-any.whl", hash = "sha256:b31553efa588ae44bc306f863c785c5333a9ecc091248c6ee68b4b6c87fdedfb", size = 60256, upload-time = "2026-10-06T17:32:33.506Z" },
++]
++
++[[package]]
++name = "opentelemetry-exporter-http-transport"
++version = "0.66b1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-api" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/62/0c/e3ebdb4b507f66afcc905e6885a4946969bd75b45988492643356fbbdc63/opentelemetry_exporter_http_transport-0.66b1.tar.gz", hash = "sha256:443080203bf52586ce0b2ad901e8951c61833eab1aa539ae6f1f16fe9e8e7952", size = 11693, upload-time = "2026-10-06T17:32:59.65Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/04/69/6af86ff66492b481c6a4c05dcfd68beb47ed8ba046440a26a2aac76b95c7/opentelemetry_exporter_http_transport-0.66b1-py3-none-any.whl", hash = "sha256:2f95404bdee7f9d2d529c7de56c7bd86d014d774d8fbf137810e0167f8a492bf", size = 12155, upload-time = "2026-10-06T17:32:35.454Z" },
++]
++
++[package.optional-dependencies]
++requests = [
++    { name = "requests" },
++]
++
++[[package]]
++name = "opentelemetry-exporter-otlp-common"
++version = "0.66b1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-sdk" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/cb/19/41de712173f43057e4532d42ece7d0c6d4210d353e5752433cb14987643f/opentelemetry_exporter_otlp_common-0.66b1.tar.gz", hash = "sha256:6b1403487a2185ac1feb45fd5546fdf8630ce71c36bcefaadf51e2130e9e23f9", size = 14325, upload-time = "2026-10-06T17:33:01.725Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/fc/39/8c23d67665c762aa51840fa06f86e902e8f6f1693bc8d7e3d98cd6e2f753/opentelemetry_exporter_otlp_common-0.66b1-py3-none-any.whl", hash = "sha256:00ff8592c3a7cb729ff3fdc7ffa12372c243bdf2163e80c180994d0c7bd83ee9", size = 12385, upload-time = "2026-10-06T17:32:38.177Z" },
++]
++
++[[package]]
++name = "opentelemetry-exporter-otlp-proto-common"
++version = "1.45.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-proto" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/c1/8e/65e85e5137991a3c493b11682151d198638a5bc1dd4b4c5f67e013c57d7c/opentelemetry_exporter_otlp_proto_common-1.45.1.tar.gz", hash = "sha256:2e4adcc3a67bcf57804fc49514f0ef64974ca7590aa3491da389852b4a0628f6", size = 18873, upload-time = "2026-10-06T17:33:04.471Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/84/aa/92f225d353904e7f70b8b3e3c1b02db0cf56f744c2e83c581dc372e78873/opentelemetry_exporter_otlp_proto_common-1.45.1-py3-none-any.whl", hash = "sha256:2f446183ae7047b036226f1d846c41a834b0e8755ad13b51a51dd38952eb466c", size = 15393, upload-time = "2026-10-06T17:32:41.911Z" },
++]
++
++[[package]]
++name = "opentelemetry-exporter-otlp-proto-http"
++version = "1.45.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "googleapis-common-protos" },
++    { name = "opentelemetry-api" },
++    { name = "opentelemetry-exporter-http-transport", extra = ["requests"] },
++    { name = "opentelemetry-exporter-otlp-common" },
++    { name = "opentelemetry-exporter-otlp-proto-common" },
++    { name = "opentelemetry-proto" },
++    { name = "opentelemetry-sdk" },
++    { name = "requests" },
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/1b/17/26487707ea4caa97b17e6e4b5fa72133a53512ffa2f5cf7a49ef284b29cb/opentelemetry_exporter_otlp_proto_http-1.45.1.tar.gz", hash = "sha256:45c218405ce3fd879596924b1874bf9a8f6880206d61065c5a912c8e5c297fb7", size = 28839, upload-time = "2026-10-06T17:33:05.713Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/aa/1f/517eaa0187ba106a9da97160ce2add3a371812681dc440930b267f714e42/opentelemetry_exporter_otlp_proto_http-1.45.1-py3-none-any.whl", hash = "sha256:24a97cf3753c7fb52fad44a696e452ff371686339e2acf3309e2eda3d0230700", size = 22180, upload-time = "2026-10-06T17:32:43.946Z" },
++]
++
++[[package]]
++name = "opentelemetry-proto"
++version = "1.45.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "protobuf" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/4b/7f/15f014fb195da6c2dbb6c71399b8e76824878718e94de6454038488eed28/opentelemetry_proto-1.45.1.tar.gz", hash = "sha256:79e0fb95e4616691a469439238aa9224d75779b3e108e895d1aa125ab29ca77c", size = 46488, upload-time = "2026-10-06T17:33:11.49Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/ab/9a/42ec8180a769516ae757e893b69736826efceac7332553915b4528a91c6d/opentelemetry_proto-1.45.1-py3-none-any.whl", hash = "sha256:f38e2a8413053c180cd3d2637fbb279673ec2f6a6e09c995aafa2f452c52b46e", size = 72488, upload-time = "2026-10-06T17:32:53.057Z" },
++]
++
++[[package]]
++name = "opentelemetry-sdk"
++version = "1.45.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-api" },
++    { name = "opentelemetry-semantic-conventions" },
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/a1/79/7392e21a1c8f0c61d90b223e31c7e48cb9d452e91a6b820ad24cca5f23c4/opentelemetry_sdk-1.45.1.tar.gz", hash = "sha256:63d24a6ca645019a631e6a51999c73e93adcac1196ca640b8ae78a7cc4762bf3", size = 218324, upload-time = "2026-10-06T17:33:13.26Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/95/3c/87c42b4bd6dd297536f04cd9383d212ac557ecd49f2cbdcd46da1c9ef5c8/opentelemetry_sdk-1.45.1-py3-none-any.whl", hash = "sha256:c604c11dc429810812348989115fa44bd558772a3d7442afc43d024f2c250ca4", size = 140063, upload-time = "2026-10-06T17:32:55.04Z" },
++]
++
++[[package]]
++name = "opentelemetry-semantic-conventions"
++version = "0.66b1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-api" },
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/46/e4/dbbfb2a010c4db2224a5114638acede6fe563d33cc20fb1752cebcbe6298/opentelemetry_semantic_conventions-0.66b1.tar.gz", hash = "sha256:497ca63bf383723411e8eaf60c8779e9877633c936bb641080adab59d0eb6ec8", size = 150250, upload-time = "2026-10-06T17:33:14.073Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/bc/14/67f8aa798857f8cf686f515bf93d9bb877ce952ddc8efae0fa25b45ce0d6/opentelemetry_semantic_conventions-0.66b1-py3-none-any.whl", hash = "sha256:d4cddeb4315490b35213f55e2bdc9ac54bb1e4d318927475bed62b35545e581b", size = 206279, upload-time = "2026-10-06T17:32:56.103Z" },
++]
++
++[[package]]
++name = "orjson"
++version = "3.13.0"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/f2/72/380b97dc45bd162d23afe5194721ef678d9eac7cfaa549fe2873f7f0a518/orjson-3.13.0.tar.gz", hash = "sha256:d1de5eb04485110c5da4c657e49168995d55e076b1ce60f1a042e254f4186c4f", size = 2732604, upload-time = "2026-10-07T14:09:25.719Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/98/17/ed65f84ed5ed6a1e06eb628611b4172e7480fc4ad92594856751a6363cac/orjson-3.13.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl", hash = "sha256:fb8644dc6d705e1269ed2842bf4dbe2b4e50d670de503bf79d5cef3a5148a4c7", size = 223063, upload-time = "2026-10-07T14:08:21.979Z" },
++    { url = "https://files.pythonhosted.org/packages/6f/4d/9332eb96d2e379384be0f211f543835eebc81f460c9403b84abe1294c431/orjson-3.13.0-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:6ff2a2c67f35202f7d823753d38ad371a9b7fc297567cdfff4420e763cb9f6f8", size = 123364, upload-time = "2026-10-07T14:08:24.026Z" },
++    { url = "https://files.pythonhosted.org/packages/b4/06/558456b7da27e974a8c9ea09117b07119f6fa131cd62b8b9ecad9eea94e1/orjson-3.13.0-cp312-cp312-manylinux2014_armv7l.manylinux_2_17_armv7l.whl", hash = "sha256:65c4e0e106ccc7265b488385659117a6805c37d042f737558ecd68aa0c67ad8f", size = 113199, upload-time = "2026-10-07T14:08:25.476Z" },
++    { url = "https://files.pythonhosted.org/packages/b7/f2/1187a9c09965620348262ec0f406868f6d7c234b2e9b5ee51020bdde5748/orjson-3.13.0-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:fbbad6b9b1da43f25c1f5b20cd5a268e028a2fc95d5a8d1ade6059973bc71584", size = 130329, upload-time = "2026-10-07T14:08:26.877Z" },
++    { url = "https://files.pythonhosted.org/packages/46/07/5d1a151bc11600434fe799e73abfc6a4d463d02e149a20e47c59d3a985ae/orjson-3.13.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ae1d895cf7bbfd50ef34bb63bb727b14514f259f3e3f8dd010783bd38e864c6e", size = 129072, upload-time = "2026-10-07T14:08:28.355Z" },
++    { url = "https://files.pythonhosted.org/packages/ea/8c/bb07c368abbf4021c4cd01c12edb526e00090f7f750ff1b88da6e6b6c7a6/orjson-3.13.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bceadfd314bd238f584fc229a4bbaf0e573597e7a026dec5429fbf29fd66c641", size = 130612, upload-time = "2026-10-07T14:08:30.041Z" },
++    { url = "https://files.pythonhosted.org/packages/d2/8d/4b66d19619ed344ac000ffea7c006477d0061d580646e736ef0e203759e8/orjson-3.13.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:b74c30e56346aad067937d766846ee74c231d1d18aad3f324e9b9261de3b2d5e", size = 134632, upload-time = "2026-10-07T14:08:31.474Z" },
++    { url = "https://files.pythonhosted.org/packages/ea/88/f8221f6593e37eb26ec4706e185b9ac6f38ff0c8f7bad5459844031ffd2d/orjson-3.13.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:4329c19b8a25693f60a77b867c9d2a3ab637b20e36f5b7bea7f5acb492b44b15", size = 126807, upload-time = "2026-10-07T14:08:32.914Z" },
++    { url = "https://files.pythonhosted.org/packages/58/9d/a1ca7321eeafd7d72e174cdc388cc96301f41516d863e7b1f64f0a1735be/orjson-3.13.0-cp312-cp312-win_amd64.whl", hash = "sha256:b571236d8393edcd3236e07423f762bfcf571f852aad667a3bce9e7b755e0790", size = 121538, upload-time = "2026-10-07T14:08:34.325Z" },
++    { url = "https://files.pythonhosted.org/packages/d0/a0/1f19b4779c910104370932fceb9ed436b47ac077f297db74008062525c04/orjson-3.13.0-cp312-cp312-win_arm64.whl", hash = "sha256:8594956a75223f657e1e68c568c0eeb3dd145f02cd6b78a47fd9a8095dbc4eae", size = 126259, upload-time = "2026-10-07T14:08:35.765Z" },
++    { url = "https://files.pythonhosted.org/packages/a9/56/f8ad2546150168858c16915c452b00eecb79597597524d1ad6ae14ad4eab/orjson-3.13.0-cp313-cp313-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl", hash = "sha256:64e8f345048d988c8b68d3882e5d41028fca1219a9939b32e4a77be34c8ae8e3", size = 222892, upload-time = "2026-10-07T14:08:37.495Z" },
++    { url = "https://files.pythonhosted.org/packages/1f/19/725d23160b2471a3f27026c55bb79af34687652d8be8f5f583cee5dcd42f/orjson-3.13.0-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:ded33b972cffdaf4ca0ac917338ab61d2bb10d68987dbcae641c313fbfdbf499", size = 123319, upload-time = "2026-10-07T14:08:38.989Z" },
++    { url = "https://files.pythonhosted.org/packages/ac/08/e5d81a00b22c73dfcb60d80da3bd92d5a7684346593536565f184dbae3c9/orjson-3.13.0-cp313-cp313-manylinux2014_armv7l.manylinux_2_17_armv7l.whl", hash = "sha256:45e34deb3437509f4ec9888dd9ee5dc426cfe21be10f1eb4ea3a9e4d33034f9e", size = 113196, upload-time = "2026-10-07T14:08:40.383Z" },
++    { url = "https://files.pythonhosted.org/packages/67/78/fda6117c69a43e470b1e9dff38dd8c5f0bc6fd8a47e4d4561ab023039335/orjson-3.13.0-cp313-cp313-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:9825b954155b345c4759f24e5f8d652b9aec2261bb5d4e1abe06bba0a1200535", size = 130245, upload-time = "2026-10-07T14:08:41.878Z" },
++    { url = "https://files.pythonhosted.org/packages/6d/31/d0cfebd456defb234414795ae7599696bf124843dfe077d0c9ece0c93554/orjson-3.13.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b081f0e7b600ff24513dec4ca75507fa05e904607847e386e8310d5b7b96b6c7", size = 128981, upload-time = "2026-10-07T14:08:43.716Z" },
++    { url = "https://files.pythonhosted.org/packages/45/46/f8d83189ff5b7b2ff225a58c5908618cc4e86afe09e65d17a30ac68c9da4/orjson-3.13.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cbed5f4c4b88d94bcc36115f4c3bb3aa25da1563a5c3328aa3acebce2b083040", size = 130370, upload-time = "2026-10-07T14:08:45.132Z" },
++    { url = "https://files.pythonhosted.org/packages/e6/6a/d6344c305003ea826b3fa0482645a897a3cd6d477ed74e1fe15d3322cb23/orjson-3.13.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:e9b61676116f755126b90e740a9cff36b91562f47ec330056cc88cc3b9f02f4b", size = 134595, upload-time = "2026-10-07T14:08:46.63Z" },
++    { url = "https://files.pythonhosted.org/packages/9f/52/d73fa44f88d53e02d10de1cf77c16ed13204ff5bca47e1692da6b406619c/orjson-3.13.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:3ef75ed7e81dae34a3649f82df52cd85f9ac839a7d6ec78ab355b33b3b27ef7f", size = 126513, upload-time = "2026-10-07T14:08:48.111Z" },
++    { url = "https://files.pythonhosted.org/packages/fb/f8/bcfc50b4ab851c4f9c0ee62f52bf3b28f0bcd0d9fe08e0ad98d4585148db/orjson-3.13.0-cp313-cp313-win_amd64.whl", hash = "sha256:4ee06e53b998c71ce3eb93b86222912fdd9dcced685ac64d4525d36fac338ea4", size = 121371, upload-time = "2026-10-07T14:08:49.549Z" },
++    { url = "https://files.pythonhosted.org/packages/7b/7a/d6927845712ec2b1e89263cd12d7203531db185dbad67f914226f2fca156/orjson-3.13.0-cp313-cp313-win_arm64.whl", hash = "sha256:89efecad02515df7f318d0613b5dfd6d2a1acd323a2b8294712789a715945525", size = 126134, upload-time = "2026-10-07T14:08:51.118Z" },
++]
++
+ [[package]]
+ name = "packaging"
+ version = "26.3"
+@@ -961,6 +1293,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/aa/b0/c4ed4f0ef8f8fa5ee8351537db6650bb8189f7e118842978dd6589065692/pillow-12.3.0-cp313-cp313-win_arm64.whl", hash = "sha256:b629de27fda84b42cde7edef0d85f13b958b47f6e9bbcbba9b673c562a89bd8b", size = 2568185, upload-time = "2026-07-01T11:54:49.137Z" },
+ ]
+ 
++[[package]]
++name = "platformdirs"
++version = "4.12.4"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/90/a1/d5f9002a70298c64a789779077d8dd90c10aa1f47fe40c86802df874f2a6/platformdirs-4.12.4.tar.gz", hash = "sha256:63743c02414e755de4e31b8f68125c1407495b86c5a006e203c01ff8b9924250", size = 60010, upload-time = "2026-10-07T23:30:32.426Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/f4/ba/223e00b885e960edd5d4b4d178c88acce019bd5b83786093681b8c393492/platformdirs-4.12.4-py3-none-any.whl", hash = "sha256:78bfb9db2a8471ed7eebe3c3c932da413911042994e699b384fbb4493fa872d7", size = 32596, upload-time = "2026-10-07T23:30:30.825Z" },
++]
++
+ [[package]]
+ name = "prettytable"
+ version = "3.18.0"
+@@ -985,6 +1326,21 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/54/6f/84908cad2d6aa5144abcf7b42709fe4fdb459bc640ec7ac5786e7693dabc/prompt_toolkit-3.0.53-py3-none-any.whl", hash = "sha256:01c0891d7f9237d5e339f7d3e42cdae80b7534abb1c7c0e3352efba6231492f2", size = 392288, upload-time = "2026-07-26T20:56:12.512Z" },
+ ]
+ 
++[[package]]
++name = "protobuf"
++version = "7.36.2"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/d9/89/5b8517baa72f84a67b8a307ba953c91057af618bf40bf676f3c03551f8f0/protobuf-7.36.2.tar.gz", hash = "sha256:497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb", size = 512737, upload-time = "2026-09-17T20:07:59.326Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/32/72/98342feb672507c8f3a69e34b4fa8961f608edba5c1a48a6f47156d92cb5/protobuf-7.36.2-cp310-abi3-macosx_10_9_universal2.whl", hash = "sha256:cbc70b17ee27e28894c7fee8bb04be1abead49e936bc70eb60052531eee2079e", size = 456039, upload-time = "2026-09-17T20:07:51.542Z" },
++    { url = "https://files.pythonhosted.org/packages/b6/ea/91fdf7c2b8bbd49cde056f00a9df6773532987e1c00fe2830b895af95c7e/protobuf-7.36.2-cp310-abi3-manylinux2014_aarch64.whl", hash = "sha256:e11e1f0180583a2af89db6a2ecd9e8dc40aa6d2988ca175bfd0e6d12ea72d74e", size = 344219, upload-time = "2026-09-17T20:07:52.914Z" },
++    { url = "https://files.pythonhosted.org/packages/17/ab/5fd5f8ece73fad885c5a09aa849b32d70472f954ba3a92d3bb5974ea953b/protobuf-7.36.2-cp310-abi3-manylinux2014_s390x.whl", hash = "sha256:f4fee11ec330d238b34a05c9b675f693c20415d1c5bd7d5320cc2f8a798eb9cf", size = 357223, upload-time = "2026-09-17T20:07:53.985Z" },
++    { url = "https://files.pythonhosted.org/packages/db/f3/3996583dd2906297a637af12114deddf7658af6e683fedb83be061983fb5/protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl", hash = "sha256:89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2", size = 343223, upload-time = "2026-09-17T20:07:54.931Z" },
++    { url = "https://files.pythonhosted.org/packages/fc/1b/dcc64f358fcb51811b58ae40b3d28f820725f116d86487cc20bd4b130701/protobuf-7.36.2-cp310-abi3-win32.whl", hash = "sha256:912c1221170e16c08d1f086762f563dd61ff83c18b5fa6652952dfaded66f728", size = 442998, upload-time = "2026-09-17T20:07:55.826Z" },
++    { url = "https://files.pythonhosted.org/packages/8a/55/b77bda4e5e5f5971fb51b07663694690e9afdb9402136c16a522bd621cad/protobuf-7.36.2-cp310-abi3-win_amd64.whl", hash = "sha256:a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353", size = 456514, upload-time = "2026-09-17T20:07:57.188Z" },
++    { url = "https://files.pythonhosted.org/packages/e4/04/d52c7016b04b6c5108f26691f9d33ec82a9b65d041f1a9c771137693d618/protobuf-7.36.2-py3-none-any.whl", hash = "sha256:bdb3a345d48db958e6ce1f18e508beb0cc981d64f24088427549c866cd039f1e", size = 179806, upload-time = "2026-09-17T20:07:58.211Z" },
++]
++
+ [[package]]
+ name = "psutil"
+ version = "7.2.2"
+@@ -1025,6 +1381,66 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/6d/18/83376915176eb058cb86470eb7396388a13350b09a8f233a79303bbcbc5b/pure_eval-0.2.4-py3-none-any.whl", hash = "sha256:96cae060a313cfaad51bb761278bfb0e62dc0248d9315a81173752dc546cd37a", size = 11893, upload-time = "2026-09-10T21:41:21.532Z" },
+ ]
+ 
++[[package]]
++name = "pydantic"
++version = "2.14.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "annotated-types" },
++    { name = "pydantic-core" },
++    { name = "typing-extensions" },
++    { name = "typing-inspection" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/6b/fb/6e44b63b26efea1cec48c26d8362313310202ef5ed6e7a52f1669e64e2cd/pydantic-2.14.0.tar.gz", hash = "sha256:8a51a7aaddd60f55566d1f07bdd87b92b463903f39a8f26b71a06314cd1548ae", size = 898613, upload-time = "2026-10-08T14:34:48.341Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/2d/eb/9146591cc819d040475bf7f2be786710c7f7eb8083693bf859728da2ca9c/pydantic-2.14.0-py3-none-any.whl", hash = "sha256:15fab1bea6f1dc5003b54fc2ecab230c1fd1dbade2acd4addc52d81e32416d4b", size = 487109, upload-time = "2026-10-08T14:34:46.864Z" },
++]
++
++[[package]]
++name = "pydantic-core"
++version = "2.50.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/e6/6d/196e8c819e0e934f35a1a33b3530396feadb0af4ca38fe9f995249e55794/pydantic_core-2.50.0.tar.gz", hash = "sha256:84d2d38f7d163c4dec292f379e9de1960c661795442aca6c90d706436cb3749e", size = 513355, upload-time = "2026-10-08T14:30:58.245Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/e3/d8/e0fe374bc0082dfd337ca319505c9302ce383aeeeacc33d93383edd159e5/pydantic_core-2.50.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:79e8fc9c135ef628c45cb8aa5deef8d21de13d33bb4c59a859fa73d335ceb40a", size = 2222860, upload-time = "2026-10-08T14:26:39.575Z" },
++    { url = "https://files.pythonhosted.org/packages/ef/7d/0a2f829e3e1d809393faab907e3d9307245cd6043ebf54fad439f72f0003/pydantic_core-2.50.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:0abe1b44d361b948404b6b2ed80be2583e0077340572e071afa6e0eda4e1de30", size = 2025752, upload-time = "2026-10-08T14:26:41.786Z" },
++    { url = "https://files.pythonhosted.org/packages/67/d4/e2808af12de4809dd6a4b532e3877baa5f1000df51bd8ebb8756450c6c92/pydantic_core-2.50.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ae45853d25a23fba56681d2f9ed41f3e3f12f0a3b2393fefa08ff6406320a1f5", size = 2048432, upload-time = "2026-10-08T14:26:43.593Z" },
++    { url = "https://files.pythonhosted.org/packages/18/58/46ad42a321051585d89f4e563b115015332caf79ba4e96f2785715c7f52d/pydantic_core-2.50.0-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:bd841dcf394ff261c26763a9d7be754176d4f1e6d26cb2a5d5331e91b6b56a5f", size = 2173565, upload-time = "2026-10-08T14:26:45.299Z" },
++    { url = "https://files.pythonhosted.org/packages/92/69/541206e657ecea865e5f6d49a4a0d8062586d05da482d9d7ed77fdcdfc86/pydantic_core-2.50.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:c2e97985641fe53ad7824d1b5bfeb7990a5ff788c4559ee44d7522642560ddc2", size = 2361974, upload-time = "2026-10-08T14:26:47.024Z" },
++    { url = "https://files.pythonhosted.org/packages/f6/c0/cf4850441d0d3d3736abe5e8b6fcb49a50166aa0651ed8444172f81f4b4f/pydantic_core-2.50.0-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:7987866a2569396e6765c54d643fd6a7b3b234e89ee8d45a3729a7b4b2726145", size = 2440817, upload-time = "2026-10-08T14:26:48.937Z" },
++    { url = "https://files.pythonhosted.org/packages/ca/e2/2f793fa2f1b338aa03124efd4362956c84d7bf1b331dc86050bc0151e67d/pydantic_core-2.50.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f187030fc3d62c668feb0f09e92852e0eb414d7fcefc4748f2e67d245aade37e", size = 2160358, upload-time = "2026-10-08T14:26:50.74Z" },
++    { url = "https://files.pythonhosted.org/packages/db/00/35e314c08e721ec1f070408a4e41926b90347ecd2863c08c78daad5f8a16/pydantic_core-2.50.0-cp312-cp312-manylinux_2_31_riscv64.whl", hash = "sha256:d187f43d1c5b844adc871c5b8c22b4aa12a116aaca4e9bd1521bc9ce479aae1f", size = 2231416, upload-time = "2026-10-08T14:26:52.733Z" },
++    { url = "https://files.pythonhosted.org/packages/0f/3a/6f7c36afe35a9eca24e5f74f33ca641ac8cf308aae4ac7af4e585d464a40/pydantic_core-2.50.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:cb4fcaabb28cabf21396a9b816b9afe091f8c776805fdf03e2cbc606b64dfa7c", size = 2242496, upload-time = "2026-10-08T14:26:54.485Z" },
++    { url = "https://files.pythonhosted.org/packages/8d/af/77adf30285836c25f6a927e170df45f8dd4af713c89135b22abcbf3c6d67/pydantic_core-2.50.0-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:1751e92d56fbb623b937d73985e500b1a2b1053e56f718a6c564660d99bb9cb0", size = 2279176, upload-time = "2026-10-08T14:26:56.432Z" },
++    { url = "https://files.pythonhosted.org/packages/08/37/4e2a05247f82b59337bf45e9bb14aed85e2d83aecd21e49ad6cedf91882b/pydantic_core-2.50.0-cp312-cp312-musllinux_1_1_armv7l.whl", hash = "sha256:70df7ff903aea05383298715ea53551c8f27c8f70cbe54ba7f05606cd822e7e4", size = 2450488, upload-time = "2026-10-08T14:26:58.218Z" },
++    { url = "https://files.pythonhosted.org/packages/85/e6/75f25906212ecb94d69a0c8ed16f5c4ac312dc9961c2e93ff2a7fdf9a07a/pydantic_core-2.50.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:24302bf47319a64e5c5c7c29e971d2b7a20a190c64e59035a3df9582dec636fa", size = 2476664, upload-time = "2026-10-08T14:26:59.98Z" },
++    { url = "https://files.pythonhosted.org/packages/75/72/ebb97b3becd0c0f2c722f698d34dec951ab1aa6086edf535f8769b545e3e/pydantic_core-2.50.0-cp312-cp312-win32.whl", hash = "sha256:5dbf9f18c8af11db719e67633be0af556d7d765bee0ca9419bd706fe4b7ed9fe", size = 2102409, upload-time = "2026-10-08T14:27:01.846Z" },
++    { url = "https://files.pythonhosted.org/packages/3f/7b/5ebf3e62f5d0f6e3503ffdfffd7d0c2f8d45690afd37fa0cfdcb1786d7d6/pydantic_core-2.50.0-cp312-cp312-win_amd64.whl", hash = "sha256:1541c334af5d42cb9eb03862a9b4d2cfbfc670fd05172ec51f3ce02d704550f1", size = 2171536, upload-time = "2026-10-08T14:27:03.797Z" },
++    { url = "https://files.pythonhosted.org/packages/58/1c/879ee9d5b63c60e5a077bab74ad93a4a48476090ca9c97534ab4263d0bae/pydantic_core-2.50.0-cp312-cp312-win_arm64.whl", hash = "sha256:b1399f918aea8fb76ffa99b474c9b768accea1f079fde407ee538bec89f20fa7", size = 2162946, upload-time = "2026-10-08T14:27:05.876Z" },
++    { url = "https://files.pythonhosted.org/packages/81/25/f9a6958f73d92f66d620e3e1b091becf6b7a2ea89437118d397e2c6ca9ba/pydantic_core-2.50.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:049b0404792dcb942f1092bfdae5f819ef30445b0d174782e1909fbdd91bb48b", size = 2222904, upload-time = "2026-10-08T14:27:07.869Z" },
++    { url = "https://files.pythonhosted.org/packages/c5/41/7f299b2ecf0ddbec8c2a68057ed53d29458ea5b0850615570849c454dd89/pydantic_core-2.50.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8f16bc5bb12f4c581b0f40facc28dbf286db32d1bf4e7e4f4c4e0f7f4e34ecf9", size = 2024863, upload-time = "2026-10-08T14:27:09.78Z" },
++    { url = "https://files.pythonhosted.org/packages/89/db/a9852fa8780acca5dd81a21bb66d4b2fb41c39dc5672cec66c32cc7f13e9/pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d1d084e92d0f4a096a5155b23d1ac603db8073ef98a3d1384badf1455e5ae742", size = 2047340, upload-time = "2026-10-08T14:27:11.85Z" },
++    { url = "https://files.pythonhosted.org/packages/90/82/cd174e776e71ebcb1d289a57cb3e89565123a84c5708865e12efa82313f9/pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:f0af2d2f745ec00a6616c4dfba4477f9156ccfb45690f6ffa5fd34f42e871ed4", size = 2173461, upload-time = "2026-10-08T14:27:13.948Z" },
++    { url = "https://files.pythonhosted.org/packages/5a/5c/9c4b2aea09ec7b7af966e79631b1970f1adeb6a8ed001bc8bb64a2d1c23d/pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:2f28a5a299d4cefd1066a6883d22600b9ae3606f881c3015d255784634647580", size = 2362629, upload-time = "2026-10-08T14:27:15.909Z" },
++    { url = "https://files.pythonhosted.org/packages/28/d9/93afd007b61c50425c3c8f0402425779341c8d498bd224e5788eaf419c4c/pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:bdd70c2d9e73bca09fad54605dfeaae2b4e770b2800c65f5f5342901ed567b9f", size = 2440134, upload-time = "2026-10-08T14:27:17.716Z" },
++    { url = "https://files.pythonhosted.org/packages/c9/93/a4ef199535547aaa7c5d2cbf009a1d6a2b252885b14c6e70404e1c661716/pydantic_core-2.50.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e58acd43ac8d3905659c1d5309318dd576243e723dd7c3b5dd4f555479b77d4b", size = 2158480, upload-time = "2026-10-08T14:27:19.618Z" },
++    { url = "https://files.pythonhosted.org/packages/de/20/f216e028d3bfbd9f8c67f7a2f0f8db04240926f630e2e66a5a8ac45fe00d/pydantic_core-2.50.0-cp313-cp313-manylinux_2_31_riscv64.whl", hash = "sha256:5a07c644047f5abc268b4c39f8cb5a30e08a3c349228cb70142c7d3ed87587c0", size = 2231837, upload-time = "2026-10-08T14:27:21.742Z" },
++    { url = "https://files.pythonhosted.org/packages/56/3f/57a6acf26e0acb82238ba4e25b35cbd6013b1d74eac99c4f358ff56bf6d6/pydantic_core-2.50.0-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:8ad8dad549cd1645be591a50b4573995ee7e018f6619ddc2bc6ea44b2ad9f694", size = 2242240, upload-time = "2026-10-08T14:27:23.564Z" },
++    { url = "https://files.pythonhosted.org/packages/94/41/f5f4014b40f91db4479e87dc038ac48a460a60baadea7ff9c942bc64dc62/pydantic_core-2.50.0-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:1773001198030e16f946a7ff7760fc3ebd45b12150f66fd0f433780043dc13d8", size = 2277852, upload-time = "2026-10-08T14:27:25.517Z" },
++    { url = "https://files.pythonhosted.org/packages/f8/fa/485e4db093e10f29676fc696abf9d88f3626ee520e99cc488fb091222db9/pydantic_core-2.50.0-cp313-cp313-musllinux_1_1_armv7l.whl", hash = "sha256:8ab9e74878172948e0426e3d27fba333fd6a1c3f9456d8e75643e8e6868ac1a1", size = 2450132, upload-time = "2026-10-08T14:27:27.493Z" },
++    { url = "https://files.pythonhosted.org/packages/d3/48/fd07063cfc65e498528cea59b27b979eb5c890a54dcf5bb19ab0a589516d/pydantic_core-2.50.0-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:e15bb1535f68a27f28e579ba3a8f74e7b05d350c45f5622b76a311d5a19ae48a", size = 2477011, upload-time = "2026-10-08T14:27:29.972Z" },
++    { url = "https://files.pythonhosted.org/packages/fa/96/6f34c285dc87ed2fae5f1b53c51bb732eda21dc0c6c73d6a5d9dcc7033cd/pydantic_core-2.50.0-cp313-cp313-win32.whl", hash = "sha256:c21e6a6e4e6d32fb6acbc4f0fa69e8319cac0d65eeaa8298d757371cc2a9c687", size = 2102027, upload-time = "2026-10-08T14:27:32.497Z" },
++    { url = "https://files.pythonhosted.org/packages/5e/50/dbdb3ba6699d494e59db2f145aeb97990e28d1503bc9f7bdd57eb4c15677/pydantic_core-2.50.0-cp313-cp313-win_amd64.whl", hash = "sha256:4f96ccd9368ecbf6685d8f6981584ab72b4f0ffd20685e747737e7e340277b8d", size = 2169974, upload-time = "2026-10-08T14:27:34.692Z" },
++    { url = "https://files.pythonhosted.org/packages/7d/ae/cfe0e52a9b45b5ba12b3a839db928669543948760a059a72f13cf0346c29/pydantic_core-2.50.0-cp313-cp313-win_arm64.whl", hash = "sha256:a2b88f9f9fa52e1c34938ff1a18ee7fbffe482df0bb43c087a9a60578d273d68", size = 2162504, upload-time = "2026-10-08T14:27:36.989Z" },
++    { url = "https://files.pythonhosted.org/packages/a9/c8/45e2cbac6379b8cec8cffd7e6aed50754fce13d93f0cff28bbbfe18c1d1c/pydantic_core-2.50.0-graalpy312-graalpy250_312_native-macosx_10_12_x86_64.whl", hash = "sha256:b916ff828d604d4311a5639b7b3da51eaea3923833ec3e300a5ee35eade99691", size = 2217049, upload-time = "2026-10-08T14:30:23.532Z" },
++    { url = "https://files.pythonhosted.org/packages/61/8c/b81c4139bff6305e7a98fa7845a99e05df1461d3c33d0fef417e02114ae7/pydantic_core-2.50.0-graalpy312-graalpy250_312_native-macosx_11_0_arm64.whl", hash = "sha256:732efbb50977ab7cf18f01d4c255834aeb14cb2425459f7bff681a1ba3a4ffa1", size = 2039121, upload-time = "2026-10-08T14:30:26.423Z" },
++    { url = "https://files.pythonhosted.org/packages/0f/49/679293741809cf835290bccf80216aebfcf5d94cb84a34709f18b21abfd5/pydantic_core-2.50.0-graalpy312-graalpy250_312_native-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ad9185366893714cd4514ae5e1a098227704fa395cb41a7855d75968ecedc826", size = 2109280, upload-time = "2026-10-08T14:30:29.216Z" },
++    { url = "https://files.pythonhosted.org/packages/f5/49/76f167aec9b9d77a82e38131539ca6c6fcf69d720965f76eda20b87b454d/pydantic_core-2.50.0-graalpy312-graalpy250_312_native-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0def1dc09802a790e4a1b3cbc4401f0b53c58f273ce3671df9867f7bdf1fbe20", size = 2269313, upload-time = "2026-10-08T14:30:32.096Z" },
++]
++
+ [[package]]
+ name = "pygments"
+ version = "2.21.0"
+@@ -1064,6 +1480,43 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+ ]
+ 
++[[package]]
++name = "pyvers"
++version = "0.2.3"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/62/21/9daf8da2793d112a04b46ac33ab9046c91b0af8292cd93b3cfdd07ff7169/pyvers-0.2.3.tar.gz", hash = "sha256:c4b81c3a033963245e124cdecb052783c9c4cea3bb08c051833af1c44faa6283", size = 12347, upload-time = "2026-07-09T13:58:07.046Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/2d/8d/63787e8feda59d981ebc953b6581ccab3c97cf7bfe0a6a407c07b50fc86c/pyvers-0.2.3-py3-none-any.whl", hash = "sha256:6f5b5612f2f4bd08caa49baa70fc5f875fc7da701a5385c13e244eea6b8114dd", size = 11757, upload-time = "2026-07-09T13:58:06.078Z" },
++]
++
++[[package]]
++name = "pyyaml"
++version = "6.0.3"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz", hash = "sha256:d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f", size = 130960, upload-time = "2025-09-25T21:33:16.546Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/d1/33/422b98d2195232ca1826284a76852ad5a86fe23e31b009c9886b2d0fb8b2/pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:7f047e29dcae44602496db43be01ad42fc6f1cc0d8cd6c83d342306c32270196", size = 182063, upload-time = "2025-09-25T21:32:11.445Z" },
++    { url = "https://files.pythonhosted.org/packages/89/a0/6cf41a19a1f2f3feab0e9c0b74134aa2ce6849093d5517a0c550fe37a648/pyyaml-6.0.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0", size = 173973, upload-time = "2025-09-25T21:32:12.492Z" },
++    { url = "https://files.pythonhosted.org/packages/ed/23/7a778b6bd0b9a8039df8b1b1d80e2e2ad78aa04171592c8a5c43a56a6af4/pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9149cad251584d5fb4981be1ecde53a1ca46c891a79788c0df828d2f166bda28", size = 775116, upload-time = "2025-09-25T21:32:13.652Z" },
++    { url = "https://files.pythonhosted.org/packages/65/30/d7353c338e12baef4ecc1b09e877c1970bd3382789c159b4f89d6a70dc09/pyyaml-6.0.3-cp312-cp312-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:5fdec68f91a0c6739b380c83b951e2c72ac0197ace422360e6d5a959d8d97b2c", size = 844011, upload-time = "2025-09-25T21:32:15.21Z" },
++    { url = "https://files.pythonhosted.org/packages/8b/9d/b3589d3877982d4f2329302ef98a8026e7f4443c765c46cfecc8858c6b4b/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc", size = 807870, upload-time = "2025-09-25T21:32:16.431Z" },
++    { url = "https://files.pythonhosted.org/packages/05/c0/b3be26a015601b822b97d9149ff8cb5ead58c66f981e04fedf4e762f4bd4/pyyaml-6.0.3-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:8dc52c23056b9ddd46818a57b78404882310fb473d63f17b07d5c40421e47f8e", size = 761089, upload-time = "2025-09-25T21:32:17.56Z" },
++    { url = "https://files.pythonhosted.org/packages/be/8e/98435a21d1d4b46590d5459a22d88128103f8da4c2d4cb8f14f2a96504e1/pyyaml-6.0.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:41715c910c881bc081f1e8872880d3c650acf13dfa8214bad49ed4cede7c34ea", size = 790181, upload-time = "2025-09-25T21:32:18.834Z" },
++    { url = "https://files.pythonhosted.org/packages/74/93/7baea19427dcfbe1e5a372d81473250b379f04b1bd3c4c5ff825e2327202/pyyaml-6.0.3-cp312-cp312-win32.whl", hash = "sha256:96b533f0e99f6579b3d4d4995707cf36df9100d67e0c8303a0c55b27b5f99bc5", size = 137658, upload-time = "2025-09-25T21:32:20.209Z" },
++    { url = "https://files.pythonhosted.org/packages/86/bf/899e81e4cce32febab4fb42bb97dcdf66bc135272882d1987881a4b519e9/pyyaml-6.0.3-cp312-cp312-win_amd64.whl", hash = "sha256:5fcd34e47f6e0b794d17de1b4ff496c00986e1c83f7ab2fb8fcfe9616ff7477b", size = 154003, upload-time = "2025-09-25T21:32:21.167Z" },
++    { url = "https://files.pythonhosted.org/packages/1a/08/67bd04656199bbb51dbed1439b7f27601dfb576fb864099c7ef0c3e55531/pyyaml-6.0.3-cp312-cp312-win_arm64.whl", hash = "sha256:64386e5e707d03a7e172c0701abfb7e10f0fb753ee1d773128192742712a98fd", size = 140344, upload-time = "2025-09-25T21:32:22.617Z" },
++    { url = "https://files.pythonhosted.org/packages/d1/11/0fd08f8192109f7169db964b5707a2f1e8b745d4e239b784a5a1dd80d1db/pyyaml-6.0.3-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:8da9669d359f02c0b91ccc01cac4a67f16afec0dac22c2ad09f46bee0697eba8", size = 181669, upload-time = "2025-09-25T21:32:23.673Z" },
++    { url = "https://files.pythonhosted.org/packages/b1/16/95309993f1d3748cd644e02e38b75d50cbc0d9561d21f390a76242ce073f/pyyaml-6.0.3-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:2283a07e2c21a2aa78d9c4442724ec1eb15f5e42a723b99cb3d822d48f5f7ad1", size = 173252, upload-time = "2025-09-25T21:32:25.149Z" },
++    { url = "https://files.pythonhosted.org/packages/50/31/b20f376d3f810b9b2371e72ef5adb33879b25edb7a6d072cb7ca0c486398/pyyaml-6.0.3-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ee2922902c45ae8ccada2c5b501ab86c36525b883eff4255313a253a3160861c", size = 767081, upload-time = "2025-09-25T21:32:26.575Z" },
++    { url = "https://files.pythonhosted.org/packages/49/1e/a55ca81e949270d5d4432fbbd19dfea5321eda7c41a849d443dc92fd1ff7/pyyaml-6.0.3-cp313-cp313-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:a33284e20b78bd4a18c8c2282d549d10bc8408a2a7ff57653c0cf0b9be0afce5", size = 841159, upload-time = "2025-09-25T21:32:27.727Z" },
++    { url = "https://files.pythonhosted.org/packages/74/27/e5b8f34d02d9995b80abcef563ea1f8b56d20134d8f4e5e81733b1feceb2/pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0f29edc409a6392443abf94b9cf89ce99889a1dd5376d94316ae5145dfedd5d6", size = 801626, upload-time = "2025-09-25T21:32:28.878Z" },
++    { url = "https://files.pythonhosted.org/packages/f9/11/ba845c23988798f40e52ba45f34849aa8a1f2d4af4b798588010792ebad6/pyyaml-6.0.3-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:f7057c9a337546edc7973c0d3ba84ddcdf0daa14533c2065749c9075001090e6", size = 753613, upload-time = "2025-09-25T21:32:30.178Z" },
++    { url = "https://files.pythonhosted.org/packages/3d/e0/7966e1a7bfc0a45bf0a7fb6b98ea03fc9b8d84fa7f2229e9659680b69ee3/pyyaml-6.0.3-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:eda16858a3cab07b80edaf74336ece1f986ba330fdb8ee0d6c0d68fe82bc96be", size = 794115, upload-time = "2025-09-25T21:32:31.353Z" },
++    { url = "https://files.pythonhosted.org/packages/de/94/980b50a6531b3019e45ddeada0626d45fa85cbe22300844a7983285bed3b/pyyaml-6.0.3-cp313-cp313-win32.whl", hash = "sha256:d0eae10f8159e8fdad514efdc92d74fd8d682c933a6dd088030f3834bc8e6b26", size = 137427, upload-time = "2025-09-25T21:32:32.58Z" },
++    { url = "https://files.pythonhosted.org/packages/97/c9/39d5b874e8b28845e4ec2202b5da735d0199dbe5b8fb85f91398814a9a46/pyyaml-6.0.3-cp313-cp313-win_amd64.whl", hash = "sha256:79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c", size = 154090, upload-time = "2025-09-25T21:32:33.659Z" },
++    { url = "https://files.pythonhosted.org/packages/73/e8/2bdf3ca2090f68bb3d75b44da7bbc71843b19c9f2b9cb9b0f4ab7a5a4329/pyyaml-6.0.3-cp313-cp313-win_arm64.whl", hash = "sha256:5498cd1645aa724a7c71c8f378eb29ebe23da2fc0d7a08071d89469bf1d2defb", size = 140246, upload-time = "2025-09-25T21:32:34.663Z" },
++]
++
+ [[package]]
+ name = "requests"
+ version = "2.34.2"
+@@ -1092,6 +1545,25 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/b3/76/6d163cfac87b632216f71879e6b2cf17163f773ff59c00b5ff4900a80fa3/rich-14.3.4-py3-none-any.whl", hash = "sha256:07e7adb4690f68864777b1450859253bed81a99a31ac321ac1817b2313558952", size = 310480, upload-time = "2026-04-11T02:57:47.484Z" },
+ ]
+ 
++[[package]]
++name = "rsl-rl-lib"
++version = "5.4.2"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "gitpython" },
++    { name = "numpy" },
++    { name = "onnx" },
++    { name = "onnxscript" },
++    { name = "tensorboard" },
++    { name = "tensordict" },
++    { name = "torch" },
++    { name = "torchvision" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/cc/a6/11460213f75318253ae20d792802faa0c3cfe2b49e29ec785e590cd81eaa/rsl_rl_lib-5.4.2.tar.gz", hash = "sha256:688e881db7f7af06d12e5498fd6f0c41b0e2f858dc0667f5fd68219c86b9667d", size = 66011, upload-time = "2026-07-15T09:45:34.847Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/48/fa/7f4da9b79f98c1f6d899b80723da8ede4c408a30f5a832ce8e94f92c1052/rsl_rl_lib-5.4.2-py3-none-any.whl", hash = "sha256:8fe07f6746df351f23467e0825e17e776835cb172d7e3fdf806120774bab61a3", size = 92923, upload-time = "2026-07-15T09:45:33.579Z" },
++]
++
+ [[package]]
+ name = "scipy"
+ version = "1.18.1"
+@@ -1141,6 +1613,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+ ]
+ 
++[[package]]
++name = "smmap"
++version = "5.0.3"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/1f/ea/49c993d6dfdd7338c9b1000a0f36817ed7ec84577ae2e52f890d1a4ff909/smmap-5.0.3.tar.gz", hash = "sha256:4d9debb8b99007ae47165abc08670bd74cb74b5227dda7f643eccc4e9eb5642c", size = 22506, upload-time = "2026-03-09T03:43:26.1Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/c1/d4/59e74daffcb57a07668852eeeb6035af9f32cbfd7a1d2511f17d2fe6a738/smmap-5.0.3-py3-none-any.whl", hash = "sha256:c106e05d5a61449cf6ba9a1e650227ecfb141590d2a98412103ff35d89fc7b2f", size = 24390, upload-time = "2026-03-09T03:43:24.361Z" },
++]
++
+ [[package]]
+ name = "stack-data"
+ version = "0.6.3"
+@@ -1167,6 +1648,60 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+ ]
+ 
++[[package]]
++name = "tensorboard"
++version = "2.21.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "absl-py" },
++    { name = "grpcio" },
++    { name = "markdown" },
++    { name = "numpy" },
++    { name = "packaging" },
++    { name = "pillow" },
++    { name = "protobuf" },
++    { name = "setuptools" },
++    { name = "tensorboard-data-server" },
++    { name = "werkzeug" },
++]
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/37/4b/cd2eec9642781a8f5b2fb9994e3933a7b259ab18e9d49aeede9b5acf6311/tensorboard-2.21.0-py3-none-any.whl", hash = "sha256:7279316dcb6bd5bc391d623dea841531299cde1887310e8133bc34a996d32255", size = 5516204, upload-time = "2026-06-29T20:48:04.472Z" },
++]
++
++[[package]]
++name = "tensorboard-data-server"
++version = "0.7.2"
++source = { registry = "https://pypi.org/simple" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/7a/13/e503968fefabd4c6b2650af21e110aa8466fe21432cd7c43a84577a89438/tensorboard_data_server-0.7.2-py3-none-any.whl", hash = "sha256:7e0610d205889588983836ec05dc098e80f97b7e7bbff7e994ebb78f578d0ddb", size = 2356, upload-time = "2023-10-23T21:23:32.16Z" },
++    { url = "https://files.pythonhosted.org/packages/b7/85/dabeaf902892922777492e1d253bb7e1264cadce3cea932f7ff599e53fea/tensorboard_data_server-0.7.2-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:9fe5d24221b29625dbc7328b0436ca7fc1c23de4acf4d272f1180856e32f9f60", size = 4823598, upload-time = "2023-10-23T21:23:33.714Z" },
++    { url = "https://files.pythonhosted.org/packages/73/c6/825dab04195756cf8ff2e12698f22513b3db2f64925bdd41671bfb33aaa5/tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl", hash = "sha256:ef687163c24185ae9754ed5650eb5bc4d84ff257aabdc33f0cc6f74d8ba54530", size = 6590363, upload-time = "2023-10-23T21:23:35.583Z" },
++]
++
++[[package]]
++name = "tensordict"
++version = "0.14.3"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "cloudpickle" },
++    { name = "importlib-metadata" },
++    { name = "numpy" },
++    { name = "orjson", marker = "python_full_version < '3.13'" },
++    { name = "packaging" },
++    { name = "pyvers" },
++    { name = "torch" },
++]
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/99/27/b34d0992b95bf61876d9600ed40c80c1aa4ec01e3611e9e38ac5c0c00e47/tensordict-0.14.3-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:36e081a32d2c5a97eb7e785b0b3f4ed0a40c9a4f4aec5ee266059d40d6514063", size = 953100, upload-time = "2026-10-08T13:29:21.374Z" },
++    { url = "https://files.pythonhosted.org/packages/07/4a/f3ef1ef8432693994e86465ccd0de2b67cafd20d50b24a1166a28a95e189/tensordict-0.14.3-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:f08ee3ff1c8ef02261d609b734734a29e69bc4c890286478182704b8d354d424", size = 596124, upload-time = "2026-10-08T13:29:22.676Z" },
++    { url = "https://files.pythonhosted.org/packages/73/7c/f8d6570ef5b0a859316e38329993ef540fe53ea711234647d2f38d33af5b/tensordict-0.14.3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:b5c48a21ee84b83e69f1ff6ac06e371bdc20b01aa2c05af76c7e5020144cb71a", size = 601662, upload-time = "2026-10-08T13:29:23.945Z" },
++    { url = "https://files.pythonhosted.org/packages/b7/07/ebfd04ed0c73db371a51e135d083498b92e342a5452898855853377aac86/tensordict-0.14.3-cp312-cp312-win_amd64.whl", hash = "sha256:46536999c0970d98e11eaf4bbcf238a612617f01d6c2aa407fe354cd920fac99", size = 651362, upload-time = "2026-10-08T13:29:25.62Z" },
++    { url = "https://files.pythonhosted.org/packages/59/d7/6229ce78187e865b908d1e524de6994670f455e4da71f168b8fdb6878761/tensordict-0.14.3-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:e66ce92ff53f3f5c32e91203c02e4cec51b72aa73335a4a27c266b1916d9aa06", size = 953134, upload-time = "2026-10-08T13:29:26.985Z" },
++    { url = "https://files.pythonhosted.org/packages/99/28/1cdc70e3766e52aae8440cfa2f6708e44a532bdddab6195c93ee45f0574b/tensordict-0.14.3-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:4e67f71cfd64e44041d7a4aab9f7cd35ea3b3c8ef090a8b02edb1f3eb1ee1613", size = 596338, upload-time = "2026-10-08T13:29:28.259Z" },
++    { url = "https://files.pythonhosted.org/packages/ac/35/b844bac04ebb5cc653c9762bcbdecf5da95b147478ab77973d8bf0aa5b65/tensordict-0.14.3-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:20d224c73e3fe81f6b27440ab54a0d3bfef4a75f1fcc64ead901f1ce61ab1fe2", size = 601694, upload-time = "2026-10-08T13:29:29.68Z" },
++    { url = "https://files.pythonhosted.org/packages/8b/49/16ca821dd68f83f72c269262048d5c6f85fc5bdae0ed12697d1a1ae3322c/tensordict-0.14.3-cp313-cp313-win_amd64.whl", hash = "sha256:f41a16c5e60dca5352507ed4d55b298ac09e16cf8bb080f4c17e462ae680eab2", size = 651490, upload-time = "2026-10-08T13:29:31.04Z" },
++]
++
+ [[package]]
+ name = "torch"
+ version = "2.14.0"
+@@ -1198,6 +1733,26 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/89/a8/683d9c44737554b67ca76dd2db4f42258a0f014246cb511293e51e0154bd/torch-2.14.0-cp313-cp313-win_amd64.whl", hash = "sha256:0e7cf18cb0d8bd666b6120932e29c7aef3502b61a08b44da4839580c539a7cdb", size = 124113865, upload-time = "2026-09-02T13:44:33.705Z" },
+ ]
+ 
++[[package]]
++name = "torchvision"
++version = "0.29.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "numpy" },
++    { name = "pillow" },
++    { name = "torch" },
++]
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/f3/f8/855c7b326ed17a8dac4a03e8e6fec33ef6728e4baa00d816cf1227bb6681/torchvision-0.29.1-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:3b6eb9d2f8fe9b93d9d37637749df361efeed133d96ddd503184a1b5b12bb27f", size = 1813847, upload-time = "2026-09-30T17:57:01.009Z" },
++    { url = "https://files.pythonhosted.org/packages/a7/bf/d1e40adbd5e54c2ca24d22f0e76f7bc23e8e76b7e3c694d5153a14aa83b8/torchvision-0.29.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:6e111c6ead37ba63347548c5bd84e1b6a60b187854a19bc2c87c9a48396888d9", size = 7586198, upload-time = "2026-09-30T17:57:07.559Z" },
++    { url = "https://files.pythonhosted.org/packages/22/6f/78267c9791b5b883421fe4dbba6041f06b59c01d43dbe0f57b4497a74f59/torchvision-0.29.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:6c717bd68dddaebbd9525377a17a84e38a291a33a218f59fdb76e8bb41e61c99", size = 7430669, upload-time = "2026-09-30T17:57:11.471Z" },
++    { url = "https://files.pythonhosted.org/packages/fa/67/c8cbf53a525ac2fba5d68e36c61636fa08297001a008b151f06c2c0c564a/torchvision-0.29.1-cp312-cp312-win_amd64.whl", hash = "sha256:551c567fd39581570bf553c8df58895d567258b9997760179719f205ec5cd859", size = 1376794, upload-time = "2026-09-30T17:57:09.109Z" },
++    { url = "https://files.pythonhosted.org/packages/8b/85/33819e5ed0caf494a5c0caa6c72bcd9d5bd22c68480d636288832d9d5f55/torchvision-0.29.1-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:b0b3de76f2ee5678b7950ba9971cf72d9c5887cd7993db61788552f371686fed", size = 1813847, upload-time = "2026-09-30T17:57:17.586Z" },
++    { url = "https://files.pythonhosted.org/packages/35/6f/81b815c3b1e0c8b75ea1d7788165bc20efb65ddb56b4ad252f233955ae86/torchvision-0.29.1-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:6231a8913a87b2943ad8779c4315992d1fce833901ddd28316382d3b003628c5", size = 7523135, upload-time = "2026-09-30T17:57:29.398Z" },
++    { url = "https://files.pythonhosted.org/packages/f6/b5/915c431a48d7f91cc31bf825aee98e663440386758131668da9b9862aafd/torchvision-0.29.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:c1b7f92604791dd0daa566f6fcc1eea0801753a34430c3ebdf79cfab2d96904c", size = 7430677, upload-time = "2026-09-30T17:57:15.949Z" },
++    { url = "https://files.pythonhosted.org/packages/6f/d7/08452a8497aab125557b7698886990eb1ab3d3a923dedcd88f309a727fe5/torchvision-0.29.1-cp313-cp313-win_amd64.whl", hash = "sha256:41338cd71864419de9ae1e1b0058f6b8645f0548370c4750c7694ffa9bff611c", size = 1376795, upload-time = "2026-09-30T17:57:12.792Z" },
++]
++
+ [[package]]
+ name = "tqdm"
+ version = "4.70.1"
+@@ -1263,6 +1818,18 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
+ ]
+ 
++[[package]]
++name = "typing-inspection"
++version = "0.4.4"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "typing-extensions" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz", hash = "sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47", size = 76928, upload-time = "2026-08-12T12:37:25.997Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl", hash = "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147", size = 14750, upload-time = "2026-08-12T12:37:24.648Z" },
++]
++
+ [[package]]
+ name = "tyro"
+ version = "1.0.16"
+@@ -1313,17 +1880,58 @@ version = "0.1.0"
+ source = { editable = "." }
+ dependencies = [
+     { name = "mjlab" },
++    { name = "rsl-rl-lib" },
++    { name = "tensorboard" },
++    { name = "tensordict" },
++    { name = "wandb" },
+ ]
+ 
+ [package.metadata]
+-requires-dist = [{ name = "mjlab", editable = "mjlab" }]
++requires-dist = [
++    { name = "mjlab", editable = "mjlab" },
++    { name = "rsl-rl-lib", specifier = "==5.4.2" },
++    { name = "tensorboard", specifier = ">=2.20.0" },
++    { name = "tensordict" },
++    { name = "wandb", specifier = ">=0.22.3" },
++]
++
++[[package]]
++name = "wandb"
++version = "0.30.0"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "click" },
++    { name = "opentelemetry-api" },
++    { name = "opentelemetry-exporter-otlp-proto-http" },
++    { name = "opentelemetry-sdk" },
++    { name = "packaging" },
++    { name = "platformdirs" },
++    { name = "protobuf" },
++    { name = "pydantic" },
++    { name = "pyyaml" },
++    { name = "requests" },
++    { name = "typing-extensions" },
++    { name = "xxhash" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/86/10/c4481d12b26f57606d1ef7c8d56825ad6af769cbb8cd29ee501ac6bbbc2d/wandb-0.30.0.tar.gz", hash = "sha256:f2d7de3c2019204f493f3f9e9166071c2be36f74140af2e1409b4de0fd84c454", size = 40862616, upload-time = "2026-09-09T00:16:41.551Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/71/5a/83201590d1e84a3b7d0a0cc7b53ee1318def18ba5431a32b26a44e6694f6/wandb-0.30.0-py3-none-macosx_13_0_arm64.whl", hash = "sha256:f4f908ace761db42d239d100230df0b77eb9684924d962a762bba176d829a236", size = 23464329, upload-time = "2026-09-09T00:16:20.505Z" },
++    { url = "https://files.pythonhosted.org/packages/35/b6/c0acf63242a0b8a3df9f877249ca260be80b86ecb08396fc34982967a50e/wandb-0.30.0-py3-none-macosx_13_0_x86_64.whl", hash = "sha256:9cf2492acd5c66ba7217667386e2a90535ccaec08079b97c389c3da5d15cde48", size = 25250085, upload-time = "2026-09-09T00:16:23.401Z" },
++    { url = "https://files.pythonhosted.org/packages/91/69/0593b9e43cd3fc257a0f6ceaf5e078f2b28baf1968e00dfa1be98261ee68/wandb-0.30.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:72b564712e85e10d78d37ccdaef4a908d28cbb39240c9c00fa4dde567150c764", size = 24049519, upload-time = "2026-09-09T00:16:25.874Z" },
++    { url = "https://files.pythonhosted.org/packages/26/13/775a4c7d87fb771a2ddb104ce7c5c5d393e48720e448b4e8c43aac7cd4ce/wandb-0.30.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:bad9412f137d02303bf178513e0109f4fed37a6c817604085a1a4151047d8790", size = 26105520, upload-time = "2026-09-09T00:16:28.146Z" },
++    { url = "https://files.pythonhosted.org/packages/58/36/4974e9ec44c23dd28a39c8ee699f1b8911dd6619c932c3fe94b016bc8a1f/wandb-0.30.0-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:1f2cc20c033f1650d387ca073177e629f1e2a1b5c4be393698e3db4752b9cf3a", size = 24112309, upload-time = "2026-09-09T00:16:30.3Z" },
++    { url = "https://files.pythonhosted.org/packages/05/77/5eddd97f33f581f4d167f41bbf4736f2a51ad7271b9c9ed5dceb6994cbd6/wandb-0.30.0-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:e7dc3b0b1567f6a121d8f7a58131b5d085861139a653ef8bed1569c9be796721", size = 26320243, upload-time = "2026-09-09T00:16:32.878Z" },
++    { url = "https://files.pythonhosted.org/packages/2f/e7/821c363f0a74aa9826ca058d3f6f8f8e41697001a0a869b5ccc7eca5b0e4/wandb-0.30.0-py3-none-win_amd64.whl", hash = "sha256:217bde0a7c49482f26166a1a7bee760bb9e2658135b2d45a33aacabffec68817", size = 24083356, upload-time = "2026-09-09T00:16:36.766Z" },
++    { url = "https://files.pythonhosted.org/packages/3a/60/fd40e8b1a6136f4df97739a503c239fb4dab67f093cb9cccb5a1dd9d1895/wandb-0.30.0-py3-none-win_arm64.whl", hash = "sha256:36d6d8a5b88b36ad82b0f7ffab79033a8bbba047b5a90c0b7e26d0cf3a09f0b6", size = 21788859, upload-time = "2026-09-09T00:16:39.088Z" },
++]
+ 
+ [[package]]
+ name = "warp-lang"
+ version = "1.17.0"
+ source = { registry = "https://pypi.nvidia.com/" }
+ resolution-markers = [
+-    "sys_platform != 'darwin'",
++    "python_full_version >= '3.13' and sys_platform != 'darwin'",
++    "python_full_version < '3.13' and sys_platform != 'darwin'",
+ ]
+ dependencies = [
+     { name = "numpy", marker = "sys_platform != 'darwin'" },
+@@ -1339,7 +1947,8 @@ name = "warp-lang"
+ version = "1.17.0"
+ source = { registry = "https://pypi.org/simple" }
+ resolution-markers = [
+-    "sys_platform == 'darwin'",
++    "python_full_version >= '3.13' and sys_platform == 'darwin'",
++    "python_full_version < '3.13' and sys_platform == 'darwin'",
+ ]
+ dependencies = [
+     { name = "numpy", marker = "sys_platform == 'darwin'" },
+@@ -1411,6 +2020,76 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/be/4d/2d0d67834092e354d2b0498f014a41249a89556bc406cf86f3e1557bb463/websockets-16.1.1-py3-none-any.whl", hash = "sha256:6abbd3e82c731c8e531714466acd5d87b5e88ac3243465337ba71d68e23ae7e3", size = 173814, upload-time = "2026-07-17T22:51:04.184Z" },
+ ]
+ 
++[[package]]
++name = "werkzeug"
++version = "3.1.9"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "markupsafe" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/a4/34/4dd12fc8bb7d61c91467ec3efe415ffa7d5456f799954b40c5bbaeae470e/werkzeug-3.1.9.tar.gz", hash = "sha256:55ca7c70a75689be937aa27f8ff4b018f06ff4838fc73045560bf0f5a1291060", size = 940188, upload-time = "2026-09-27T18:33:41.637Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/a1/38/df03f564f43cec2684823f3cccae1a652ee7face1cbaa76fb223096e64d7/werkzeug-3.1.9-py3-none-any.whl", hash = "sha256:6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab", size = 228700, upload-time = "2026-09-27T18:33:39.685Z" },
++]
++
++[[package]]
++name = "xxhash"
++version = "4.0.1"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/f6/a5/1386f35da1475fcaeef42581deae73417c6d2a6a0b2d2e8914de18844dcd/xxhash-4.0.1.tar.gz", hash = "sha256:d55bf4ef10eb09b8b6866790e083d26d087d84caa3cc0946ba87c3ca7ecaf7b7", size = 101513, upload-time = "2026-08-17T08:24:08.557Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/26/6c/dc7cffeadd06336cd934947187cd38abb263103bbc552ca0f55fe4ff595a/xxhash-4.0.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:1ee523f51718e41753f04f7102bb4dc55a18d2ea5cbaceef8ec7ca08571bd428", size = 38444, upload-time = "2026-08-17T08:21:54.332Z" },
++    { url = "https://files.pythonhosted.org/packages/75/c9/cf736f6db8c3273af18925061572db0d4357818a9ce425f4b5fb0021918e/xxhash-4.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:515a822c73abbf6a0b7c70976d9662be342835c9d78b8dc7c023411f39c35dbc", size = 36195, upload-time = "2026-08-17T08:35:13.004Z" },
++    { url = "https://files.pythonhosted.org/packages/da/a2/ca1929354b6851529d0148f7f335b5e2b0281f83bab3e19f0896dc579796/xxhash-4.0.1-cp312-cp312-manylinux1_i686.manylinux_2_28_i686.manylinux_2_5_i686.whl", hash = "sha256:f5d031f35962e5483a613214e61f09fe24ab523062c3646d592dc16c4a217451", size = 253113, upload-time = "2026-08-17T08:20:52.152Z" },
++    { url = "https://files.pythonhosted.org/packages/de/bb/542005206af59518bc8d78a210f1e0172217bc53beb32f64a5b632e72b6b/xxhash-4.0.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:da0264844a09b538c894e5eff25313d941deb4dedec2131b98418a71a3c9944e", size = 276525, upload-time = "2026-08-17T08:21:01.886Z" },
++    { url = "https://files.pythonhosted.org/packages/1b/df/607cff25dcb0f1d35c3b04493f6ad8471edb03fd4eacbdcc5ceddef1f3e9/xxhash-4.0.1-cp312-cp312-manylinux2014_armv7l.manylinux_2_17_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:1642907941ee4b75aacc3db688af52ea02ca2305ab22af7ee686ed726b332684", size = 297703, upload-time = "2026-08-17T08:21:57.958Z" },
++    { url = "https://files.pythonhosted.org/packages/15/ba/9d2275eea0b9d9c6b02921be23f7588356c60df95c763b25f0e045894d43/xxhash-4.0.1-cp312-cp312-manylinux2014_ppc64le.manylinux_2_17_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:4af350bc3f329970c0e3a59af84a8a30998bf8a9167eb50cd48e59baaa1d7bec", size = 280252, upload-time = "2026-08-17T08:20:47.299Z" },
++    { url = "https://files.pythonhosted.org/packages/1d/aa/2299d9f6369e550aef2abb64945e39daa34412725aa46a20d99b74d76f67/xxhash-4.0.1-cp312-cp312-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:8ba782ca3bf1e81492611152b9a0d5264971339e95e34d69de0ac2c926be496d", size = 511041, upload-time = "2026-08-17T08:20:36.771Z" },
++    { url = "https://files.pythonhosted.org/packages/83/97/31bd8b8279e6935a0719f6910ced15e9d5a2cd554b253f6027ce1b5a1c2c/xxhash-4.0.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:237b8f63a2a0fcfb1ffc06e21dad23add44e6d354b2b014364a1d41e419a4dee", size = 261812, upload-time = "2026-08-17T08:22:00.469Z" },
++    { url = "https://files.pythonhosted.org/packages/2d/c1/d180a2da23c105d8e0b02d54f9f5841013fc81c233010ec781e31f1aee4c/xxhash-4.0.1-cp312-cp312-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:81507a68ba84c55241fb61cce1469f473a5da4205fc8ef6f698e5948eea8dd88", size = 339878, upload-time = "2026-08-17T08:35:17.626Z" },
++    { url = "https://files.pythonhosted.org/packages/a8/3d/f584cd3172fe934f0f5a0a3917d0d7ce781f74d794fd43bb72be71c3ef6f/xxhash-4.0.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:5f1ea31d61bcd2cd2f3ec4ca80a64187bbd7948f490b63cf0dcbc6e717b4c1e9", size = 272871, upload-time = "2026-08-17T08:20:56.067Z" },
++    { url = "https://files.pythonhosted.org/packages/34/50/2c7956b2b551682e00b9aebce9ceb0a991a131d65f9850c09f5f9760be2e/xxhash-4.0.1-cp312-cp312-musllinux_1_2_armv7l.whl", hash = "sha256:06713a5aaf1d0905c5579416c020c02e42b3ceb931e86c7d3b7fb85403dee3f3", size = 301440, upload-time = "2026-08-17T08:21:35.911Z" },
++    { url = "https://files.pythonhosted.org/packages/eb/a2/0739f6482184a8026f4b022718f5f815d352059312e80696825433f0a8e7/xxhash-4.0.1-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:e8cda075b10bb3917b002c74a04f9e02b7d13b5bf732571404d51c52b11c7329", size = 260157, upload-time = "2026-08-17T08:22:01.416Z" },
++    { url = "https://files.pythonhosted.org/packages/a1/25/b31a7bcf1d7d116842812e54f9b944843b4236ea4fa85634e8259f342212/xxhash-4.0.1-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:c10b9206753b64aa791b35b201485477525b26fdec5bf86e8364c388a03e2592", size = 278233, upload-time = "2026-08-17T08:21:15.674Z" },
++    { url = "https://files.pythonhosted.org/packages/db/e8/5293bae090fc6119dbc5fcf5c4cc0e1536394b52d73b7904d033836c73db/xxhash-4.0.1-cp312-cp312-musllinux_1_2_riscv64.whl", hash = "sha256:f3e1a44af01b6692de0ec6caba5f0bf93ceb36896e02b7fc00952c6ea7ef39e1", size = 330270, upload-time = "2026-08-17T08:20:51.128Z" },
++    { url = "https://files.pythonhosted.org/packages/72/9e/e2ab12d40921f3f34c9317637d65e011aeababf8288356ea8d527de2c1d0/xxhash-4.0.1-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:c6fc415b5568bd9accc7187f1729a99707330c0a67a8b9f93c1149ed573ed75d", size = 478555, upload-time = "2026-08-17T08:22:04.183Z" },
++    { url = "https://files.pythonhosted.org/packages/6d/32/c6148d39a49efa95f39b4cf0d41ef35a487f3b30f6fb1fc8fe8d8eab577e/xxhash-4.0.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:96d8de55029d42251945531f6aa7590c32b48163c66a43bf29d8657d7446a377", size = 258174, upload-time = "2026-08-17T08:35:21.18Z" },
++    { url = "https://files.pythonhosted.org/packages/8f/fb/0b04b68d6c5bc71c7a2c344f1287327b67e607f28fbcfd937697caca64b6/xxhash-4.0.1-cp312-cp312-pyemscripten_2024_0_wasm32.whl", hash = "sha256:0163b5d259de23ae9e07b7eabf435ce4704f6f205589a2b154e6af4be985ce1b", size = 20767, upload-time = "2026-08-17T08:21:00.806Z" },
++    { url = "https://files.pythonhosted.org/packages/a6/be/476092aba34d1fcd313e1613a3bb3bc692f253d167b54bc90049043b5034/xxhash-4.0.1-cp312-cp312-win32.whl", hash = "sha256:1216f7ba5683f17a89eb7dcb4bc50a0b743dfe1902278d7b3d0786f538118433", size = 34669, upload-time = "2026-08-17T08:21:49.486Z" },
++    { url = "https://files.pythonhosted.org/packages/aa/02/f9413d94fae43cec6d1a74c4f12156c6f4a7f5fd50e1d34defebdee3dec9/xxhash-4.0.1-cp312-cp312-win_amd64.whl", hash = "sha256:5c2d525a3afabcd8e3549d85fc7e111fde6bc302d06a1893fe73adb79823415e", size = 37073, upload-time = "2026-08-17T08:22:04.886Z" },
++    { url = "https://files.pythonhosted.org/packages/c1/83/6fe93c1b95acf962bc61a246df09dc2dcce895ccfc1080c9f48d0b652b92/xxhash-4.0.1-cp312-cp312-win_arm64.whl", hash = "sha256:86b2b12bec60c678ed8f5cca0258ad93a8928ebddb6ca7732f0875afe1451d1a", size = 33299, upload-time = "2026-08-17T08:35:12.708Z" },
++    { url = "https://files.pythonhosted.org/packages/f3/dd/c707286b527722f776e1fb81dd202c45623355ba1a2972337a2a26075b2b/xxhash-4.0.1-cp313-cp313-android_24_arm64_v8a.whl", hash = "sha256:8c9fe122444e129881afd1d4d1c7ac0d3ce2d91b68c2b40173b6025ff1c31f9a", size = 43639, upload-time = "2026-08-17T08:20:54.945Z" },
++    { url = "https://files.pythonhosted.org/packages/1b/3b/bb71639a0f95635f61936a6f2653599c4261b645ddddd8d00f9dfe3613e2/xxhash-4.0.1-cp313-cp313-android_24_x86_64.whl", hash = "sha256:1f3346c5c287ac3c7f38b20380f55e8768230e7252af59fabcf3b87ab21e4256", size = 40657, upload-time = "2026-08-17T08:22:12.616Z" },
++    { url = "https://files.pythonhosted.org/packages/3c/91/76f3f5385faa9886a36f21fcc603f40b4c0c40ce622382f133160c48b4d9/xxhash-4.0.1-cp313-cp313-ios_13_0_arm64_iphoneos.whl", hash = "sha256:4e5141543c7f7fe3087500bbb4ac2845cb528a980aa91f8f1e661e2292ff4a5d", size = 34708, upload-time = "2026-08-17T08:35:24.614Z" },
++    { url = "https://files.pythonhosted.org/packages/9a/4a/f48f0e3e1b1ab072979fff2a5be899234e28090883e8b519d0b10215d708/xxhash-4.0.1-cp313-cp313-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:f09ee747e2a5f876cc5ad56947734811828335e13b403dd8ea1e06d77a9dd48d", size = 35650, upload-time = "2026-08-17T08:21:09.337Z" },
++    { url = "https://files.pythonhosted.org/packages/c4/53/b73d7472b196101ad1f57ed0674af3af803ac3e9ec2feadd650a7b262562/xxhash-4.0.1-cp313-cp313-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:acf52474b2494ef66dc7e0fb6d5e2b50c18313039ad4d275fbf9f9907c804bc5", size = 37958, upload-time = "2026-08-17T08:22:10.616Z" },
++    { url = "https://files.pythonhosted.org/packages/d0/f2/024946ad8fa532074af4e4380179da54b7ec9facc8bd0b279ec0fac4e63a/xxhash-4.0.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:1b3cccf75eeb5b01639b2feadb042a8e07889293b7ca72fa2985e7dcb64763cf", size = 38032, upload-time = "2026-08-17T08:22:09.535Z" },
++    { url = "https://files.pythonhosted.org/packages/da/e0/934af8d99bb5885711006bec30a691f728edd513d2c40f053f887d8e7577/xxhash-4.0.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:cd878d32f5c6cbce9783f8d6897561fb772211edba9dde49d85672b88ed45276", size = 35895, upload-time = "2026-08-17T08:35:16.53Z" },
++    { url = "https://files.pythonhosted.org/packages/20/5f/a8011f6a1558f7ca66d9077bb4f192b1871afcea62fbd5733605d2015755/xxhash-4.0.1-cp313-cp313-manylinux1_i686.manylinux_2_28_i686.manylinux_2_5_i686.whl", hash = "sha256:41e579025a6e13a99e6d71e39c9cfc621a0dcdbbf19106325e145fa858f2d794", size = 259464, upload-time = "2026-08-17T08:21:06.72Z" },
++    { url = "https://files.pythonhosted.org/packages/ff/89/9665a44397547e7a3d58c0942425a976d58dcfd4b538f33220a312bf6912/xxhash-4.0.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:74379a577a9f3b6afbdedf1b90e5c7764467051977f18a326d7d607336d743bd", size = 283949, upload-time = "2026-08-17T08:22:17.003Z" },
++    { url = "https://files.pythonhosted.org/packages/34/2d/78774141266457468f29f3f5803092df4db87d8148ba74e4debd041649db/xxhash-4.0.1-cp313-cp313-manylinux2014_armv7l.manylinux_2_17_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:acb31ecdd1a97fab5cd39a84ee9f515e727d319f796fec48703b8339b9998360", size = 303898, upload-time = "2026-08-17T08:35:27.951Z" },
++    { url = "https://files.pythonhosted.org/packages/59/48/d78d22de576b42528bff87c14207de50de4f0b888221a50ff7c9d675d670/xxhash-4.0.1-cp313-cp313-manylinux2014_ppc64le.manylinux_2_17_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:5b7875ac1a2edcb691f27642b8b94b904baa6bcecb7d79c72df2228ba8cb5c51", size = 287241, upload-time = "2026-08-17T08:21:13.042Z" },
++    { url = "https://files.pythonhosted.org/packages/4c/de/7a1755a59c59fd46176f293bbdd99e399a6537ba9537fc723aa4d1bf6e27/xxhash-4.0.1-cp313-cp313-manylinux2014_s390x.manylinux_2_17_s390x.manylinux_2_28_s390x.whl", hash = "sha256:4751f1d7eecae6b2d2a773630f1a7248f125c9a92a456694d03c15bceffc9d68", size = 519856, upload-time = "2026-08-17T08:22:15.35Z" },
++    { url = "https://files.pythonhosted.org/packages/6f/fb/76580c08e916507859b0f335393cb5fdc59452c4402edbc6bcca6e47e7df/xxhash-4.0.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9a51b061d54cda8b83e62c44458bfbf0dabbef9b975dd9649952ba5076b9f349", size = 268572, upload-time = "2026-08-17T08:22:14.533Z" },
++    { url = "https://files.pythonhosted.org/packages/d0/2b/1abde3e07b8f2077a38b4fbfaf764115008bfe0ff03bc7756a52c9fd0607/xxhash-4.0.1-cp313-cp313-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:74a164e8b63f1e9cf35c9a7809d082b033d1a00e7375d5d814415436e7867e57", size = 344967, upload-time = "2026-08-17T08:35:23.569Z" },
++    { url = "https://files.pythonhosted.org/packages/5c/15/80b6ddf0732eef48a8b5fe717398274794392bd6dbe82af38d189d214772/xxhash-4.0.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:4f5e5c6df4b703afcbe9352d238a51efd97c3b91fdc3a2052e40fdacb1e7505f", size = 279956, upload-time = "2026-08-17T08:21:24.97Z" },
++    { url = "https://files.pythonhosted.org/packages/77/e0/11cbc43c205bf81fad50d69c7319cd1b1ccc01a66cd4fb8766357126c43d/xxhash-4.0.1-cp313-cp313-musllinux_1_2_armv7l.whl", hash = "sha256:d54b8ae068af532c8cdf56abb9e09a60fbe7b10792444c9c27987bb6d3b450fa", size = 307583, upload-time = "2026-08-17T08:22:22.541Z" },
++    { url = "https://files.pythonhosted.org/packages/1c/11/cf0bc07feb2791045b6ac075d4bf64f1a5beedef2f46ae70d7104d63a19f/xxhash-4.0.1-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:1749f0688020209fe0d357ce1e1cd9ec9c6161ed0405ea949d24581c4c43fa91", size = 265848, upload-time = "2026-08-17T08:35:31.298Z" },
++    { url = "https://files.pythonhosted.org/packages/d4/c4/7ada4bea2a2795073dfc42d96842930efbe7a0c1857ef4b522e4e90e5d83/xxhash-4.0.1-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:94ac8a6b8c47951173f0b67bf862bcb971bf24e493b9fbbdb0e010cbbc7d9f54", size = 284409, upload-time = "2026-08-17T08:21:23.156Z" },
++    { url = "https://files.pythonhosted.org/packages/3c/f4/d8ce83dd6b99ccfbdadaf2db968ae40334d2e5f73a0297e593b9ddb3df39/xxhash-4.0.1-cp313-cp313-musllinux_1_2_riscv64.whl", hash = "sha256:a33de7633c948ab2dc144af370a66e7e7af29b425dcd0f7e4f59689fb9391b53", size = 335921, upload-time = "2026-08-17T08:22:21.802Z" },
++    { url = "https://files.pythonhosted.org/packages/a6/9f/f47d8724bd8bc45b395b06b7cacea2dae0d00031af1b707184a091161df6/xxhash-4.0.1-cp313-cp313-musllinux_1_2_s390x.whl", hash = "sha256:247ece770647c0aef080561fa996f9774b4dadce2d0c42eeb98229db7dcf820d", size = 487023, upload-time = "2026-08-17T08:22:19.729Z" },
++    { url = "https://files.pythonhosted.org/packages/57/54/2d87098f3371cc1e42dd04d2285ad56bca4c56667bc501bff02d2b9fd6b5/xxhash-4.0.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:a4553d36cc0b7fce1f35ba8a94dfd775aa3ed12f5eab2dc3b46ac75a0706b0bb", size = 264333, upload-time = "2026-08-17T08:35:27.001Z" },
++    { url = "https://files.pythonhosted.org/packages/27/b8/93795ca5898ec7d7d0455283ad261c0fc76b4f0c0a69e86233bd7badb0bd/xxhash-4.0.1-cp313-cp313-pyemscripten_2025_0_wasm32.whl", hash = "sha256:87aa309a93bd5ec13f14309a305ff4e9bf74c5363fc46c264c0a22edfd5b0670", size = 20581, upload-time = "2026-08-17T08:21:39.207Z" },
++    { url = "https://files.pythonhosted.org/packages/b6/96/926f7335a0a1647952c00421e8da877f658094f61336306c7cadc335c94d/xxhash-4.0.1-cp313-cp313-win32.whl", hash = "sha256:cba763d84b06bda2c38d5185dee76f1b9dfdc0789e96e476d9e10005526d0788", size = 34449, upload-time = "2026-08-17T08:22:29.362Z" },
++    { url = "https://files.pythonhosted.org/packages/ea/61/8a5aeb811de093bab3434e77eff0e9461624a1a56a6a93d315d080aab2aa/xxhash-4.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:97b94fb29abf21f5f0bde15f7dbdd3a4aa2dc59f37026adc7b4bee8563b84375", size = 36520, upload-time = "2026-08-17T08:35:34.852Z" },
++    { url = "https://files.pythonhosted.org/packages/04/14/97f3c74000ca36955e9cb86f6d270dcd5848b5c65afa623453f5cf2d83d6/xxhash-4.0.1-cp313-cp313-win_arm64.whl", hash = "sha256:08ed8da18cd4fd0a6a5d6a444852d8fbd0e565388a74a4937085451b5f1a312a", size = 33428, upload-time = "2026-08-17T08:21:31.713Z" },
++    { url = "https://files.pythonhosted.org/packages/86/79/9127ff42a887a348dc4ce3211cf1a962836887adee6f57078132bfba78b4/xxhash-4.0.1-graalpy312-graalpy250_312_native-macosx_10_13_x86_64.whl", hash = "sha256:ff48915bf1871a1f19f74c11834c6329443d306cedc0c05fe7fe617810422a80", size = 31836, upload-time = "2026-08-17T08:36:28.261Z" },
++    { url = "https://files.pythonhosted.org/packages/0a/e6/f238693bfdd642adb59c99683964d46d9947fe721ff44d3bd850ae675407/xxhash-4.0.1-graalpy312-graalpy250_312_native-macosx_11_0_arm64.whl", hash = "sha256:4a76345f5aceb4ec404918edf9c7f2b5507db864dc0d7455982009ac0890b57b", size = 34453, upload-time = "2026-08-17T08:23:49.795Z" },
++    { url = "https://files.pythonhosted.org/packages/40/4b/796ace33cdfb75c91ba6d11615c3bd436355b9f3103e05865bbee9abce57/xxhash-4.0.1-graalpy312-graalpy250_312_native-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:31d86f9e81f3e84e00131ac7c54caf5119ae4ddd82c09c31cff597c813ce1ee2", size = 38488, upload-time = "2026-08-17T08:23:59.901Z" },
++    { url = "https://files.pythonhosted.org/packages/ad/23/2d549e5d5d7759eaf9ac2d2d2ab81ff60f1bb2b52cdaae8e5ec5c6524354/xxhash-4.0.1-graalpy312-graalpy250_312_native-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:deca2a30d983d240b8375ec2ee0a4288e72042827fc61df2f7671f8467e4cb2f", size = 38206, upload-time = "2026-08-17T08:36:32.193Z" },
++    { url = "https://files.pythonhosted.org/packages/79/98/1ee576b27f78e6107ee4ea8ac03e8a52888dff256e57d560f8282c195563/xxhash-4.0.1-graalpy312-graalpy250_312_native-win_amd64.whl", hash = "sha256:7c343ee174d417a44d0c3355602c0cbbfa52a04d1bbbf1723378c7d2c8f60626", size = 37127, upload-time = "2026-08-17T08:23:42.705Z" },
++]
++
+ [[package]]
+ name = "zipp"
+ version = "4.1.0"

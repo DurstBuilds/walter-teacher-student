@@ -1,7 +1,7 @@
 """PD loops that fill the Walter action vector.
 
 Hips, knees, and wheels use the same action terms as the velocity task.
-The waist term exists only on the PD environment and is held at zero.
+``head_joint`` is fixed at 0 degrees and is not an action.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ class FullBodyPdController:
     self._right_thighs = _body_ids(robot, _RIGHT_THIGHS, device)
     self._left_wheels = _wheel_columns(robot, columns, "left", device)
     self._right_wheels = _wheel_columns(robot, columns, "right", device)
-    self._waist_column = columns[_WAIST]
+    self._waist_column = columns.get(_WAIST)
     self._knee_scale = _knee_position_scale(env)
     self._knee_ids = torch.cat((self._left_knees.ids, self._right_knees.ids))
     self._knee_columns = torch.cat(
@@ -83,6 +83,8 @@ class FullBodyPdController:
     self._knee_ref = torch.zeros(
       env.num_envs, self._knee_ids.numel(), device=device
     )
+    self._forced_on = torch.zeros(env.num_envs, dtype=torch.bool, device=device)
+    self._forced_knee_ref = torch.zeros_like(self._knee_ref)
     self._knee_pose = torch.zeros_like(self._knee_ref)
     self._settle_turns = torch.zeros_like(self._knee_ref)
     self._settling = torch.zeros_like(self._knee_ref, dtype=torch.bool)
@@ -103,6 +105,11 @@ class FullBodyPdController:
     """Gains used by the loops."""
     return self._gains
 
+  @property
+  def tumbling(self) -> torch.Tensor:
+    """Latched speed-lag tumble gate, one flag per environment."""
+    return self._tumbling
+
   def reset(self) -> None:
     """Clear the stall integral. Yaw has no accumulated heading."""
     self._clear_tumble(slice(None))
@@ -121,8 +128,62 @@ class FullBodyPdController:
     self._apply_roll(actions, robot)
     self._apply_tumble(actions, robot)
     self._apply_wheels(actions, robot)
-    actions[:, self._waist_column] = 0.0
+    if self._waist_column is not None:
+      actions[:, self._waist_column] = 0.0
     return actions
+
+  def overlay_forced_tumble(
+    self, actions: torch.Tensor, force: torch.Tensor
+  ) -> torch.Tensor:
+    """Write tumble knees and wheels on ``force`` rows of a PD action.
+
+    Hips already in ``actions`` stay as the reactive PD set them. Knees on
+    a forced row advance at ``tumble.rate``, and those wheels hold
+    ``tumble.wheel_speed``, both through the existing tumble write. The
+    speed-lag latch is restored afterward. A closed mask leaves ``actions``
+    unchanged.
+    """
+    self._advance_forced_knees(force)
+    if not bool(force.any()):
+      return actions
+    self._write_forced_rows(actions, force)
+    return actions
+
+  def _advance_forced_knees(self, force: torch.Tensor) -> None:
+    """Start the forced reference at the measured angle, then integrate."""
+    robot = self._env.scene["robot"]
+    just_on = force & ~self._forced_on
+    if bool(just_on.any()):
+      measured = robot.data.joint_pos[just_on][:, self._knee_ids]
+      self._forced_knee_ref[just_on] = measured
+    self._forced_knee_ref[force] += self._gains.tumble.rate * self._env.step_dt
+    self._forced_knee_ref[~force] = 0.0
+    self._forced_on = force.detach().clone()
+
+  def _write_forced_rows(self, actions: torch.Tensor, force: torch.Tensor) -> None:
+    """Reuse ``_write_tumble`` and ``_apply_wheels`` without sticking the latch."""
+    saved_tumbling = self._tumbling
+    saved_ref = self._knee_ref
+    saved_settling = self._settling
+    self._tumbling = force
+    self._knee_ref = self._forced_knee_ref
+    self._settling = torch.zeros_like(saved_settling)
+    try:
+      self._write_tumble(actions)
+      self._copy_forced_wheels(actions, force)
+    finally:
+      self._tumbling = saved_tumbling
+      self._knee_ref = saved_ref
+      self._settling = saved_settling
+
+  def _copy_forced_wheels(self, actions: torch.Tensor, force: torch.Tensor) -> None:
+    """Copy only the forced wheel columns out of ``_apply_wheels``."""
+    scratch = actions.clone()
+    self._apply_wheels(scratch, self._env.scene["robot"])
+    wheels = torch.cat((self._left_wheels, self._right_wheels))
+    actions[:, wheels] = torch.where(
+      force.unsqueeze(1), scratch[:, wheels], actions[:, wheels]
+    )
 
   def _sync_knee_servo(self) -> None:
     """Use the compliant knee servo while Tank Mode is on."""
@@ -171,6 +232,8 @@ class FullBodyPdController:
     self._settling[env_ids] = False
     self._settle_turns[env_ids] = 0.0
     self._knee_ref[env_ids] = 0.0
+    self._forced_on[env_ids] = False
+    self._forced_knee_ref[env_ids] = 0.0
 
   def _apply_tumble(self, actions: torch.Tensor, robot) -> None:
     """Spin every knee at ``tumble.rate`` once missed distance is large."""

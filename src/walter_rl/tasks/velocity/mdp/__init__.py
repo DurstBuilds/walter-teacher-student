@@ -1,6 +1,10 @@
 """WaLTER velocity MDP terms."""
 
-from walter_rl.tasks.velocity.mdp.curriculums import terrain_levels_hold_max
+from walter_rl.tasks.velocity.mdp.curriculums import (
+  terrain_levels_along_spawn,
+  terrain_levels_hold_max,
+  wrap_terrain_levels,
+)
 from walter_rl.tasks.velocity.mdp.observations import (
   finite_builtin_sensor,
   finite_height_scan,
@@ -11,14 +15,23 @@ from walter_rl.tasks.velocity.mdp.observations import (
   non_finite_root,
 )
 from walter_rl.tasks.velocity.mdp.rewards import (
+  KneeStuckTumble,
   climb_vz,
   drive_forward,
+  gated_track_teacher_action,
   head_level,
+  integrate_speed_lag,
   knee_tumble,
   knee_tumble_reverse,
+  hold_spawn_heading,
   knee_waste,
+  predictive_knee_tumble,
+  spawn_heading_error,
+  teacher_action_mse,
+  TrackLatchedForward,
   track_lin_vel_xy,
   track_ride_height,
+  track_teacher_action,
   wheel_wheel_collision,
 )
 
@@ -30,14 +43,25 @@ __all__ = [
   "finite_joint_pos_rel",
   "finite_joint_vel_rel",
   "finite_projected_gravity",
+  "gated_track_teacher_action",
   "head_level",
+  "integrate_speed_lag",
   "joint_pos_sincos",
+  "KneeStuckTumble",
   "knee_tumble",
   "knee_tumble_reverse",
+  "hold_spawn_heading",
   "knee_waste",
   "non_finite_root",
+  "predictive_knee_tumble",
+  "spawn_heading_error",
+  "teacher_action_mse",
+  "terrain_levels_along_spawn",
   "terrain_levels_hold_max",
+  "TrackLatchedForward",
+  "wrap_terrain_levels",
   "track_lin_vel_xy",
   "track_ride_height",
+  "track_teacher_action",
   "wheel_wheel_collision",
 ]

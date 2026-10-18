@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WaLTER</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f0e8;
+      --card: #fffdf8;
+      --ink: #1c1915;
+      --muted: #5c564c;
+      --line: #e3dcd0;
+      --accent: #0f6e56;
+      --accent-ink: #ffffff;
+      --danger: #8f2d2d;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.45 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    main {
+      width: min(40rem, calc(100% - 2rem));
+      margin: 2rem auto 3rem;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.5rem 1.25rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .lede {
+      margin: 0.35rem 0 1.25rem;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      background: #efeae1;
+      border-radius: 10px;
+    }
+
+    .tabs button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tabs button[aria-selected="true"] {
+      background: var(--card);
+      color: var(--ink);
+      box-shadow: 0 1px 2px rgb(28 25 21 / 8%);
+    }
+
+    .panel { margin-top: 1.25rem; }
+
+    .field {
+      display: grid;
+      gap: 0.35rem;
+      margin-top: 1.15rem;
+    }
+
+    .field-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    label, .group-label {
+      font-weight: 600;
+    }
+
+    .hint, .note {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .choices {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .choice {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 0.75rem;
+      row-gap: 0.1rem;
+      align-items: center;
+      min-height: 44px;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .choice:has(input:checked) {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .choice:focus-within {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .choice input {
+      width: 1.15rem;
+      height: 1.15rem;
+      margin: 0;
+      grid-row: 1 / span 2;
+      accent-color: var(--accent);
+    }
+
+    .choice-title { font-weight: 600; }
+
+    .choice-detail {
+      color: var(--muted);
+      grid-column: 2;
+    }
+
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-height: 44px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .switch input {
+      width: 1.15rem;
+      height: 1.15rem;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      height: 44px;
+      padding: 0 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      font: inherit;
+    }
+
+    select:focus, input:focus, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    details { margin-top: 0.5rem; }
+
+    details summary {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .summary {
+      margin: 1.25rem 0 0.75rem;
+      font-size: 1.05rem;
+    }
+
+    .error {
+      margin: 0 0 0.75rem;
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    button.primary, button.stop, button.text, button.toggle {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.toggle {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: inherit;
+      font-weight: 600;
+    }
+
+    button.toggle[aria-pressed="true"] {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .sub {
+      display: grid;
+      gap: 0.35rem;
+      font-weight: 600;
+    }
+
+    button.primary {
+      width: 100%;
+      height: 48px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 600;
+    }
+
+    button.primary:disabled {
+      background: #d9e4df;
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    button.stop {
+      min-height: 44px;
+      margin-top: 0.75rem;
+      padding: 0 1rem;
+      border: 1px solid var(--danger);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--danger);
+    }
+
+    button.text {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .status { margin: 0; font-weight: 600; }
+
+    .status[data-state="running"],
+    .status[data-state="finished"] { color: var(--accent); }
+
+    .status[data-state="failed"] { color: var(--danger); }
+
+    .status[data-state="stopped"] { color: var(--muted); }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      margin-top: 0.6rem;
+    }
+
+    .links a {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    pre {
+      max-height: 16rem;
+      margin: 0.5rem 0 0;
+      padding: 0.75rem;
+      overflow: auto;
+      border-radius: 8px;
+      background: #1c1915;
+      color: #f4f1ea;
+      font: 0.8rem/1.4 ui-monospace, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .noscript {
+      margin-top: 1rem;
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>WaLTER</h1>
+    <p class="lede">Play a policy, or train one.</p>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Mode">
+      <button id="tab-play" type="button" role="tab" aria-selected="true" aria-controls="play-panel">Play</button>
+      <button id="tab-train" type="button" role="tab" aria-selected="false" aria-controls="train-panel">Train</button>
+    </div>
+
+    <section class="panel" id="play-panel" role="tabpanel" aria-labelledby="tab-play">
+      <div class="field">
+        <span class="group-label" id="policy-label">Policy</span>
+        <div class="choices" role="radiogroup" aria-labelledby="policy-label">
+          <label class="choice">
+            <input type="radio" name="policy" value="pd" checked>
+            <span class="choice-title">Classical PD</span>
+            <span class="choice-detail">Balance, speed, and skid steering in code.</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="policy" value="smooth-tumble">
+            <span class="choice-title">Smooth tumble</span>
+            <span class="choice-detail">The same controller with a smoother tumble recovery.</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="policy" value="checkpoint">
+            <span class="choice-title">Trained checkpoint</span>
+            <span class="choice-detail">A saved PPO policy.</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="play-scene">Scene</label>
+        <select id="play-scene" aria-describedby="play-scene-hint"></select>
+        <p class="hint" id="play-scene-hint"></p>
+      </div>
+
+      <div class="field" id="play-checkpoint-field" hidden>
+        <div class="field-head">
+          <label for="play-checkpoint">Checkpoint</label>
+          <button type="button" class="text" data-action="refresh">Refresh</button>
+        </div>
+        <select id="play-checkpoint"></select>
+        <p class="hint">Newest training run first.</p>
+      </div>
+
+      <div class="field" id="play-payload-field">
+        <label for="play-payload">Payload</label>
+        <select id="play-payload" aria-describedby="play-payload-hint"></select>
+        <p class="hint" id="play-payload-hint"></p>
+      </div>
+
+      <details>
+        <summary>More</summary>
+        <div class="field">
+          <label for="play-envs">Robots</label>
+          <input id="play-envs" type="number" min="1" max="16384" value="1" inputmode="numeric">
+          <p class="hint">One is enough to watch.</p>
+        </div>
+        <div class="field">
+          <label for="play-viewer">Viewer</label>
+          <select id="play-viewer"></select>
+        </div>
+      </details>
+      <p class="note" id="viewer-note">The viewer opens in its own window.</p>
+    </section>
+
+    <section class="panel" id="train-panel" role="tabpanel" aria-labelledby="tab-train" hidden>
+      <div class="field">
+        <span class="group-label" id="mode-label">Start from</span>
+        <div class="choices" role="radiogroup" aria-labelledby="mode-label">
+          <label class="choice">
+            <input type="radio" name="train-mode" value="new" checked>
+            <span class="choice-title">New run</span>
+            <span class="choice-detail">Start from scratch.</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="train-mode" value="resume">
+            <span class="choice-title">Continue from checkpoint</span>
+            <span class="choice-detail">Load the weights and keep training.</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field" id="train-checkpoint-field" hidden>
+        <div class="field-head">
+          <label for="train-checkpoint">Checkpoint</label>
+          <button type="button" class="text" data-action="refresh">Refresh</button>
+        </div>
+        <select id="train-checkpoint"></select>
+        <p class="hint">Newest training run first.</p>
+      </div>
+
+      <div class="field">
+        <label class="switch" for="teacher">
+          <input id="teacher" type="checkbox" aria-describedby="teacher-hint">
+          <span>Match the PD teacher</span>
+        </label>
+        <p class="hint" id="teacher-hint">The student is rewarded for matching the full-body PD action.</p>
+        <div id="teacher-only-field" hidden>
+          <button type="button" class="toggle" id="teacher-only" aria-pressed="false" aria-describedby="teacher-only-hint">Reward only Teacher Tracking</button>
+          <p class="hint" id="teacher-only-hint">Sets every other reward weight to 0.</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="train-scene">Scene</label>
+        <select id="train-scene" aria-describedby="train-scene-hint"></select>
+        <p class="hint" id="train-scene-hint"></p>
+      </div>
+
+      <div class="field">
+        <label for="train-envs">Robots</label>
+        <input id="train-envs" type="number" min="1" max="16384" value="1024" inputmode="numeric">
+        <p class="hint">8 is a smoke test. Use 1024 or more for a real run.</p>
+      </div>
+
+      <div class="field">
+        <span class="group-label">Forward speed (m/s)</span>
+        <div class="pair">
+          <label class="sub" for="lin-vel-x-min">Min
+            <input id="lin-vel-x-min" type="number" min="-20" max="20" step="0.05" inputmode="decimal">
+          </label>
+          <label class="sub" for="lin-vel-x-max">Max
+            <input id="lin-vel-x-max" type="number" min="-20" max="20" step="0.05" inputmode="decimal">
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="group-label">Yaw rate (rad/s)</span>
+        <div class="pair">
+          <label class="sub" for="ang-vel-z-min">Min
+            <input id="ang-vel-z-min" type="number" min="-20" max="20" step="0.05" inputmode="decimal">
+          </label>
+          <label class="sub" for="ang-vel-z-max">Max
+            <input id="ang-vel-z-max" type="number" min="-20" max="20" step="0.05" inputmode="decimal">
+          </label>
+        </div>
+        <p class="hint">Half of resamples still set yaw to 0. Five percent are still a full stop.</p>
+      </div>
+
+      <div class="field">
+        <label for="train-iterations">Updates</label>
+        <input id="train-iterations" type="number" min="1" max="100000" value="1000" inputmode="numeric" aria-describedby="iteration-hint">
+        <p class="hint" id="iteration-hint">5000 is a full flat run. 1000 is a shorter one.</p>
+      </div>
+
+      <details>
+        <summary>More</summary>
+        <div class="field">
+          <label for="train-device">Processor</label>
+          <select id="train-device"></select>
+          <p class="hint">Automatic uses the GPU when one is available.</p>
+        </div>
+      </details>
+    </section>
+
+    <p class="summary" id="launch-summary">Loading…</p>
+    <p class="error" id="request-error" hidden></p>
+    <div id="launch-idle">
+      <button class="primary" id="start" type="button" disabled>Play</button>
+    </div>
+    <div id="launch-job" hidden>
+      <p class="status" id="job-status" role="status" aria-live="polite"></p>
+      <div class="links">
+        <a id="viewer-link" href="" hidden target="_blank" rel="noopener">Open viewer</a>
+        <a id="wandb-link" href="" hidden target="_blank" rel="noopener">Weights &amp; Biases</a>
+      </div>
+      <button class="stop" id="stop" type="button" hidden>Stop</button>
+      <details id="log-details">
+        <summary>Log</summary>
+        <pre id="log"></pre>
+      </details>
+    </div>
+    <noscript><p class="noscript">This page needs JavaScript to start playback and training.</p></noscript>
+  </main>
+  <script>
+    let mode = "play";
+    let runs = [];
+    let pollTimer = 0;
+
+    const $ = (id) => document.getElementById(id);
+
+    document.body.addEventListener("change", onFormChange);
+    document.body.addEventListener("input", onFormChange);
+    document.body.addEventListener("click", onClick);
+    $("tabs").addEventListener("keydown", onTabKey);
+    $("tab-play").addEventListener("click", () => showMode("play"));
+    $("tab-train").addEventListener("click", () => showMode("train"));
+    $("start").addEventListener("click", startJob);
+    $("stop").addEventListener("click", stopJob);
+    $("teacher-only").addEventListener("click", toggleTeacherOnly);
+
+    init();
+
+    async function init() {
+      try {
+        const [catalogBody, checkpointBody] = await Promise.all([
+          getJson("/api/catalog"),
+          getJson("/api/checkpoints"),
+        ]);
+        runs = checkpointBody.runs;
+        applyCatalog(catalogBody);
+        fillCheckpoints();
+        syncFields();
+        renderSummary();
+        refreshJob();
+      } catch (error) {
+        showError("Could not load the panel.");
+      }
+    }
+
+    function applyCatalog(catalog) {
+      fillSelect($("play-scene"), catalog.scenes, catalog.defaults.scene);
+      fillSelect($("train-scene"), catalog.scenes, catalog.defaults.scene);
+      fillSelect($("play-payload"), catalog.payloads, "");
+      fillSelect($("play-viewer"), catalog.viewers, catalog.defaults.viewer);
+      fillSelect($("train-device"), catalog.devices, catalog.defaults.device);
+      $("play-envs").value = String(catalog.defaults.play_num_envs);
+      $("train-envs").value = String(catalog.defaults.train_num_envs);
+      $("train-iterations").value = String(catalog.defaults.train_iterations);
+      $("lin-vel-x-min").value = String(catalog.defaults.lin_vel_x_min);
+      $("lin-vel-x-max").value = String(catalog.defaults.lin_vel_x_max);
+      $("ang-vel-z-min").value = String(catalog.defaults.ang_vel_z_min);
+      $("ang-vel-z-max").value = String(catalog.defaults.ang_vel_z_max);
+    }
+
+    function fillSelect(select, options, selected) {
+      select.replaceChildren();
+      for (const option of options) {
+        const node = document.createElement("option");
+        node.value = option.id;
+        node.textContent = option.label;
+        if (option.detail) node.dataset.detail = option.detail;
+        select.append(node);
+      }
+      select.value = selected;
+    }
+
+    function fillCheckpoints() {
+      for (const select of [$("play-checkpoint"), $("train-checkpoint")]) {
+        const previous = select.value;
+        select.replaceChildren();
+        if (runs.length === 0) {
+          const empty = document.createElement("option");
+          empty.value = "";
+          empty.textContent = "No saved checkpoints";
+          select.append(empty);
+          continue;
+        }
+        for (const run of runs) {
+          const group = document.createElement("optgroup");
+          group.label = `${run.experiment} · ${run.run}`;
+          for (const checkpoint of run.checkpoints) {
+            const option = document.createElement("option");
+            option.value = checkpoint.path;
+            option.textContent = `Iteration ${checkpoint.iteration}`;
+            option.dataset.iteration = String(checkpoint.iteration);
+            group.append(option);
+          }
+          select.append(group);
+        }
+        const stillThere = [...select.options].some((option) => option.value === previous);
+        if (previous && stillThere) select.value = previous;
+      }
+    }
+
+    async function reloadCheckpoints() {
+      try {
+        const body = await getJson("/api/checkpoints");
+        runs = body.runs;
+        fillCheckpoints();
+        syncFields();
+        renderSummary();
+        clearError();
+      } catch (error) {
+        showError("Could not refresh checkpoints.");
+      }
+    }
+
+    function onFormChange() {
+      syncFields();
+      renderSummary();
+      clearError();
+    }
+
+    function syncFields() {
+      const policy = selectedValue("policy");
+      $("play-checkpoint-field").hidden = policy !== "checkpoint";
+      $("play-payload-field").hidden = policy === "checkpoint";
+      const continuing = selectedValue("train-mode") === "resume";
+      $("train-checkpoint-field").hidden = !continuing;
+      $("teacher-only-field").hidden = !$("teacher").checked;
+      $("iteration-hint").textContent = continuing
+        ? "These updates are added on top of the checkpoint."
+        : "5000 is a full flat run. 1000 is a shorter one.";
+      setHint($("play-scene"), $("play-scene-hint"));
+      setHint($("train-scene"), $("train-scene-hint"));
+      setHint($("play-payload"), $("play-payload-hint"));
+    }
+
+    function setHint(select, hint) {
+      hint.textContent = select.selectedOptions[0]?.dataset.detail || "";
+    }
+
+    function showMode(next) {
+      mode = next;
+      const playing = next === "play";
+      $("play-panel").hidden = !playing;
+      $("train-panel").hidden = playing;
+      $("viewer-note").hidden = !playing;
+      $("tab-play").setAttribute("aria-selected", String(playing));
+      $("tab-train").setAttribute("aria-selected", String(!playing));
+      $("start").textContent = playing ? "Play" : "Start training";
+      renderSummary();
+    }
+
+    function onTabKey(event) {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const next = mode === "play" ? "train" : "play";
+      showMode(next);
+      $(next === "play" ? "tab-play" : "tab-train").focus();
+    }
+
+    function renderSummary() {
+      const text = mode === "play" ? playSummary() : trainSummary();
+      $("launch-summary").textContent = text;
+      if (!$("launch-idle").hidden) $("start").disabled = !canStart();
+    }
+
+    function playSummary() {
+      const scene = sceneName($("play-scene"));
+      if (selectedValue("policy") === "checkpoint") {
+        const iteration = selectedIteration("play-checkpoint");
+        if (!iteration) return "Choose a checkpoint to play.";
+        return `Play iteration ${iteration} on the ${scene} scene.`;
+      }
+      const name = selectedValue("policy") === "pd" ? "classical PD" : "smooth tumble";
+      const payload = $("play-payload").value
+        ? ` with a ${$("play-payload").selectedOptions[0].textContent.toLowerCase()}`
+        : "";
+      return `Play the ${name} policy on the ${scene} scene${payload}.`;
+    }
+
+    function trainSummary() {
+      const scene = sceneName($("train-scene"));
+      const robots = $("train-envs").value || "0";
+      const updates = $("train-iterations").value || "0";
+      const teacher = $("teacher").checked;
+      const device = devicePhrase();
+      const ranges = ` Forward ${$("lin-vel-x-min").value} to ${$("lin-vel-x-max").value} m/s, yaw ${$("ang-vel-z-min").value} to ${$("ang-vel-z-max").value} rad/s.`;
+      const only = teacher && teacherOnly() ? " Only the teacher-tracking reward is on." : "";
+      if (selectedValue("train-mode") === "resume") {
+        const iteration = selectedIteration("train-checkpoint");
+        if (!iteration) return "Choose a checkpoint to continue.";
+        const who = teacher ? "the teacher" : "training";
+        return `Continue ${who} from iteration ${iteration} for ${updates} more updates on the ${scene} scene, using ${robots} robots${device}.${ranges}${only}`;
+      }
+      const who = teacher ? "teacher run" : "run";
+      return `Start a new ${who} on the ${scene} scene for ${updates} updates, using ${robots} robots${device}.${ranges}${only}`;
+    }
+
+    function sceneName(select) {
+      return (select.selectedOptions[0]?.textContent || "selected").toLowerCase();
+    }
+
+    function devicePhrase() {
+      if ($("train-device").value === "cuda:0") return ", on the GPU";
+      if ($("train-device").value === "cpu") return ", on the CPU";
+      return "";
+    }
+
+    function canStart() {
+      if (mode === "play") {
+        if (selectedValue("policy") === "checkpoint" && !$("play-checkpoint").value) return false;
+        return wholeNumber($("play-envs").value, 16384);
+      }
+      if (selectedValue("train-mode") === "resume" && !$("train-checkpoint").value) return false;
+      return wholeNumber($("train-envs").value, 16384)
+        && wholeNumber($("train-iterations").value, 100000)
+        && rangeOk("lin-vel-x-min", "lin-vel-x-max")
+        && rangeOk("ang-vel-z-min", "ang-vel-z-max");
+    }
+
+    function toggleTeacherOnly() {
+      const pressed = $("teacher-only").getAttribute("aria-pressed") !== "true";
+      $("teacher-only").setAttribute("aria-pressed", String(pressed));
+      renderSummary();
+    }
+
+    function teacherOnly() {
+      return $("teacher-only").getAttribute("aria-pressed") === "true";
+    }
+
+    function rangeOk(minId, maxId) {
+      const low = Number($(minId).value);
+      const high = Number($(maxId).value);
+      return Number.isFinite(low) && Number.isFinite(high)
+        && low >= -20 && high <= 20 && low <= high;
+    }
+
+    function wholeNumber(raw, limit) {
+      const value = Number(raw);
+      return Number.isInteger(value) && value >= 1 && value <= limit;
+    }
+
+    function requestBody() {
+      const summary = $("launch-summary").textContent;
+      if (mode === "play") {
+        const policy = selectedValue("policy");
+        const body = {
+          policy,
+          task: $("play-scene").value,
+          num_envs: Number($("play-envs").value),
+          viewer: $("play-viewer").value,
+          summary,
+        };
+        if (policy === "checkpoint") body.checkpoint = $("play-checkpoint").value;
+        else body.payload = $("play-payload").value;
+        return body;
+      }
+      const trainMode = selectedValue("train-mode");
+      const body = {
+        mode: trainMode,
+        teacher: $("teacher").checked,
+        teacher_only_reward: $("teacher").checked && teacherOnly(),
+        lin_vel_x_min: Number($("lin-vel-x-min").value),
+        lin_vel_x_max: Number($("lin-vel-x-max").value),
+        ang_vel_z_min: Number($("ang-vel-z-min").value),
+        ang_vel_z_max: Number($("ang-vel-z-max").value),
+        task: $("train-scene").value,
+        num_envs: Number($("train-envs").value),
+        max_iterations: Number($("train-iterations").value),
+        device: $("train-device").value,
+        summary,
+      };
+      if (trainMode === "resume") body.checkpoint = $("train-checkpoint").value;
+      return body;
+    }
+
+    async function startJob() {
+      clearError();
+      $("start").disabled = true;
+      try {
+        const response = await fetch(mode === "play" ? "/api/play" : "/api/train", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody()),
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          showError(body.error || "Could not start.");
+          renderSummary();
+          return;
+        }
+        $("log-details").open = false;
+        renderJob(body);
+        schedulePoll();
+      } catch (error) {
+        showError("Could not reach the panel.");
+        renderSummary();
+      }
+    }
+
+    async function stopJob() {
+      $("stop").disabled = true;
+      try {
+        const response = await fetch("/api/job/stop", { method: "POST" });
+        renderJob(await response.json());
+        window.setTimeout(refreshJob, 400);
+      } catch (error) {
+        showError("Could not stop the session.");
+      } finally {
+        $("stop").disabled = false;
+      }
+    }
+
+    function schedulePoll() {
+      window.clearTimeout(pollTimer);
+      pollTimer = window.setTimeout(refreshJob, 1000);
+    }
+
+    async function refreshJob() {
+      try {
+        const job = await getJson("/api/job");
+        renderJob(job);
+        if (job.state === "running") schedulePoll();
+      } catch (error) {
+        showError("Lost contact with the panel.");
+      }
+    }
+
+    function renderJob(job) {
+      const running = job.state === "running";
+      setBusy(running);
+      $("launch-idle").hidden = running;
+      $("launch-summary").hidden = running;
+      $("launch-job").hidden = job.state === "idle";
+      if (job.state === "idle") {
+        renderSummary();
+        return;
+      }
+      const status = $("job-status");
+      status.dataset.state = job.state;
+      status.textContent = statusText(job);
+      setLink($("viewer-link"), job.viewer_url);
+      setLink($("wandb-link"), job.wandb_url);
+      $("stop").hidden = !running;
+      renderLog(job.lines);
+      if (job.state === "failed") $("log-details").open = true;
+      renderSummary();
+    }
+
+    function statusText(job) {
+      if (job.state === "running") return job.summary || "Running.";
+      if (job.state === "stopped") return "Stopped.";
+      if (job.state === "finished") {
+        return job.kind === "train" ? "Training finished." : "Playback ended.";
+      }
+      const lead = job.kind === "train" ? "Training failed." : "Playback failed.";
+      const last = [...job.lines].reverse().find((line) => line.trim());
+      if (!last || last.length > 180) return lead;
+      return `${lead} ${last}`;
+    }
+
+    function renderLog(lines) {
+      const log = $("log");
+      const text = lines.join("\n");
+      if (log.textContent === text) return;
+      const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 32;
+      log.textContent = text;
+      if (nearBottom) log.scrollTop = log.scrollHeight;
+    }
+
+    function setBusy(isBusy) {
+      for (const id of ["play-panel", "train-panel"]) {
+        $(id).querySelectorAll("input, select, button").forEach((node) => {
+          node.disabled = isBusy;
+        });
+      }
+    }
+
+    function setLink(anchor, url) {
+      anchor.hidden = !url;
+      if (url) anchor.href = url;
+    }
+
+    function onClick(event) {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.dataset.action === "refresh") {
+        reloadCheckpoints();
+      }
+    }
+
+    function selectedValue(name) {
+      const input = document.querySelector(`input[name="${name}"]:checked`);
+      return input ? input.value : "";
+    }
+
+    function selectedIteration(selectId) {
+      return $(selectId).selectedOptions[0]?.dataset.iteration || "";
+    }
+
+    function showError(message) {
+      const node = $("request-error");
+      node.hidden = false;
+      node.textContent = message;
+    }
+
+    function clearError() {
+      $("request-error").hidden = true;
+    }
+
+    async function getJson(path) {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      return response.json();
+    }
+  </script>
+</body>
+</html>

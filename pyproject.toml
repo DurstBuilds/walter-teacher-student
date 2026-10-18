@@ -9,6 +9,10 @@ description = "gen0 Walter full-body PD control in the flat, rough, and stairs s
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "mjlab",
+  "rsl-rl-lib==5.4.2",
+  "tensorboard>=2.20.0",
+  "tensordict",
+  "wandb>=0.22.3",
 ]
 
 [tool.uv.sources]

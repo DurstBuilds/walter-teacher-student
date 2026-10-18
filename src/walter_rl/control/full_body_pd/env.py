@@ -1,6 +1,6 @@
-"""PD-only Walter environments.
+"""PD and RL Walter environments share the locked head joint.
 
-The waist position actuator is added here and is not part of the RL tasks.
+``head_joint`` is fixed at 0 degrees. It is not an action.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from dataclasses import replace
 from typing import Literal
 
 import mujoco
+import numpy as np
 import torch
 
 from mjlab.actuator import BuiltinPositionActuatorCfg, DcMotorActuatorCfg
@@ -52,7 +53,7 @@ def make_pd_env(
   episode_length_s: float | None = None,
   payload: str | None = None,
 ) -> ManagerBasedRlEnv:
-  """Build a Walter env whose action vector includes the waist hold."""
+  """Build a Walter env with ``head_joint`` fixed at 0 degrees."""
   chosen = "rough" if easy_rough else task
   cfg = _CFG_FOR_TASK[chosen](play=play)
   _add_waist_lock(cfg, gains if gains is not None else default_gains())
@@ -92,29 +93,17 @@ def _default_device() -> str:
 
 
 def _add_waist_lock(cfg: ManagerBasedRlEnvCfg, gains: FullBodyPdGains) -> None:
-  """Servo ``head_joint`` to zero without changing the RL robot config."""
+  """Fix ``head_joint`` at 0 degrees without changing the shared robot config."""
   robot = get_walter_fs_robot_cfg()
-  robot.spec_fn = _spec_without_waist_spring
+  assert robot.articulation is not None
+  # The articulation object is shared. Copy it before editing gains or actuators.
+  robot.articulation = replace(robot.articulation)
+  robot.spec_fn = _spec_with_fixed_head
   _stiffen_hips(robot, gains)
   _stiffen_knees(robot, gains)
-  assert robot.articulation is not None
-  robot.articulation.actuators = (
-    *robot.articulation.actuators,
-    BuiltinPositionActuatorCfg(
-      target_names_expr=("head_joint",),
-      stiffness=gains.waist.kp,
-      damping=gains.waist.kd,
-      effort_limit=gains.waist.effort_limit,
-    ),
-  )
   cfg.scene.entities["robot"] = robot
   _use_absolute_knee_action(cfg)
-  cfg.actions["waist"] = JointPositionActionCfg(
-    entity_name="robot",
-    actuator_names=("head_joint",),
-    scale=1.0,
-    use_default_offset=True,
-  )
+  cfg.actions.pop("waist", None)
 
 
 def _stiffen_hips(robot, gains: FullBodyPdGains) -> None:
@@ -186,15 +175,33 @@ def _use_absolute_knee_action(cfg: ManagerBasedRlEnvCfg) -> None:
   )
 
 
-def _spec_without_waist_spring() -> mujoco.MjSpec:
-  """Drop the MJCF waist spring so the gain file is the whole hold loop."""
+# Equality time constant. Short enough that a large moment leaves the head
+# within a hundredth of a degree of zero.
+_HEAD_LOCK_SOLREF = (0.002, 1.0)
+
+
+def _spec_with_fixed_head() -> mujoco.MjSpec:
+  """Drop the waist spring and constrain ``head_joint`` to 0."""
   spec = get_spec()
+  _lock_head_joint(spec)
+  return spec
+
+
+def _lock_head_joint(spec: mujoco.MjSpec) -> None:
+  """Replace the ±25 deg waist hinge with a joint equality at q = 0."""
   for joint in spec.joints:
     if joint.name != "head_joint":
       continue
     joint.stiffness[:] = 0.0
     joint.damping[:] = 0.0
-  return spec
+  equality = spec.add_equality(
+    name="head_fixed",
+    type=mujoco.mjtEq.mjEQ_JOINT,
+    name1="head_joint",
+  )
+  # a0 + a1 q = 0, with a1 = 1, so the joint angle is 0.
+  equality.data[:5] = np.array([0.0, 1.0, 0.0, 0.0, 0.0])
+  equality.solref[:] = np.array(_HEAD_LOCK_SOLREF)
 
 
 def _apply_easy_rough(cfg: ManagerBasedRlEnvCfg) -> None:

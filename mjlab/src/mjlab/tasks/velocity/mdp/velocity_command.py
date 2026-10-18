@@ -95,6 +95,37 @@ def _axis_level(slider) -> float:
   return round((_AXIS_COMMAND_FRACTION * float(slider.max)) / step) * step
 
 
+def _sample_range(
+  rand: torch.Tensor,
+  bounds: tuple[float, float],
+  power: float,
+) -> torch.Tensor:
+  """Draw from ``bounds``. ``power`` below 1 bunches samples toward the top.
+
+  A power of 1 is uniform. A power of 0.5 takes the square root of a unit
+  uniform draw, so the density rises linearly and the top of the range is
+  twice as likely as the midpoint.
+  """
+  low, high = bounds
+  if high == low or power == 1.0:
+    return rand.uniform_(low, high)
+  unit = rand.uniform_(0.0, 1.0).pow_(power)
+  return low + (high - low) * unit
+
+
+def _zero_yaw(
+  command: torch.Tensor,
+  env_ids: torch.Tensor,
+  rand: torch.Tensor,
+  probability: float,
+) -> None:
+  """Set yaw to 0 on a random fraction of ``env_ids``."""
+  if probability <= 0.0:
+    return
+  zero = rand.uniform_(0.0, 1.0) <= probability
+  command[env_ids[zero], 2] = 0.0
+
+
 class UniformVelocityCommand(CommandTerm):
   cfg: UniformVelocityCommandCfg
 
@@ -186,9 +217,12 @@ class UniformVelocityCommand(CommandTerm):
 
   def _resample_command(self, env_ids: torch.Tensor) -> None:
     r = torch.empty(len(env_ids), device=self.device)
-    self.vel_command_b[env_ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
+    self.vel_command_b[env_ids, 0] = _sample_range(
+      r, self.cfg.ranges.lin_vel_x, self.cfg.lin_vel_x_power
+    )
     self.vel_command_b[env_ids, 1] = r.uniform_(*self.cfg.ranges.lin_vel_y)
     self.vel_command_b[env_ids, 2] = r.uniform_(*self.cfg.ranges.ang_vel_z)
+    _zero_yaw(self.vel_command_b, env_ids, r, self.cfg.zero_ang_vel_prob)
     if self.cfg.heading_command:
       assert self.cfg.ranges.heading is not None
       self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
@@ -291,7 +325,7 @@ class UniformVelocityCommand(CommandTerm):
 
     with server.gui.add_folder(name.capitalize()):
       enabled = server.gui.add_checkbox("Enable", initial_value=False)
-      tank_mode = server.gui.add_checkbox("Tank Mode", initial_value=True)
+      tank_mode = server.gui.add_checkbox("Tank Mode", initial_value=False)
       tumbling = server.gui.add_checkbox(
         "Tumbling",
         initial_value=True,
@@ -580,6 +614,12 @@ class UniformVelocityCommandCfg(CommandTermCfg):
   init_velocity_prob: float = 0.0
   """Probability that an env starts its episode already moving at its sampled
   planar command velocity. Applied on reset only."""
+  lin_vel_x_power: float = 1.0
+  """Exponent on a unit uniform draw before it is scaled into ``lin_vel_x``.
+  1 is uniform. Below 1 the density rises toward the top of the range."""
+  zero_ang_vel_prob: float = 0.0
+  """Chance a resampled yaw rate is set to 0. Independent of standing, which
+  still zeros the whole command."""
 
   @dataclass
   class Ranges:

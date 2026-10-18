@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import replace
 from itertools import combinations
+from typing import Literal
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
@@ -15,6 +16,7 @@ from mjlab.envs.mdp.actions import (
 )
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.curriculum_manager import CurriculumTermCfg
+from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.managers.observation_manager import ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
@@ -50,14 +52,23 @@ from walter_rl.tasks.velocity.mdp import (
   finite_joint_pos_rel,
   finite_joint_vel_rel,
   finite_projected_gravity,
+  KneeStuckTumble,
+  TrackLatchedForward,
+  gated_track_teacher_action,
   head_level,
+  hold_spawn_heading,
   joint_pos_sincos,
   knee_tumble,
   knee_tumble_reverse,
   knee_waste,
   non_finite_root,
+  predictive_knee_tumble,
+  spawn_heading_error,
+  teacher_action_mse,
+  terrain_levels_along_spawn,
   terrain_levels_hold_max,
   track_lin_vel_xy,
+  wrap_terrain_levels,
   track_ride_height,
   wheel_wheel_collision,
 )
@@ -168,6 +179,278 @@ def walter_fs_stairs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return cfg
 
 
+# Peak rates of the simple velocity task. On flat ground the gated teacher
+# match stays under the sum of the two tracking weights.
+FORWARD_TRACK_WEIGHT = 2.0
+YAW_TRACK_WEIGHT = 1.0
+UPRIGHT_WEIGHT = 0.1
+ACTION_RATE_WEIGHT = -0.02
+HEAD_LEVEL_WEIGHT = -0.1
+# One per touching wheel pair. The same count is used on the terrain task.
+WHEEL_COLLISION_WEIGHT = -1.0
+# Four knees at the PD tumble rate, with the integral at its 0.5 m cap, sum
+# to 6. This weight keeps that peak at 1.5, under forward tracking.
+KNEE_STUCK_TUMBLE_WEIGHT = 0.25
+# The kernel is in [0, 1]. The stored teacher action is the reactive PD on a
+# flat scan and the forced tumble on a step, so this weight matches both.
+# 1.5 stays under forward tracking (2.0) plus yaw-rate tracking (1.0).
+TRACK_TEACHER_WEIGHT = 1.5
+TRACK_TEACHER_STD = 1.0
+# Mean forward knee rate divided by the PD tumble rate, times the scan
+# tumble gate. A stall at an open gate still pays. A flat scan does not.
+# The kernel is at most about 1 at the PD tumble rate, under forward tracking.
+PREDICTIVE_KNEE_TUMBLE_WEIGHT = 1.0
+# Upright yaw error from the spawn heading. A right angle is not paid.
+HEADING_HOLD_WEIGHT = 1.0
+HEADING_HOLD_STD = 0.5
+_LIN_VEL_STD = math.sqrt(0.25)
+_ANG_VEL_STD = math.sqrt(0.5)
+
+
+RlSceneName = Literal["flat", "rough", "rough-test", "stairs"]
+
+
+def walter_fs_rl_env_cfg(
+  play: bool = False,
+  task: RlSceneName = "flat",
+) -> ManagerBasedRlEnvCfg:
+  """Forward task on ``task`` terrain, with the trained action layout.
+
+  Yaw rate is commanded at zero. Turning off a stair face is not a separate
+  command the policy can satisfy.
+
+  Hips, absolute knees, and wheels match ``FullBodyPdController``.
+  ``head_joint`` is fixed at 0 degrees and is not an action.
+  Actor and critic both include the torso terrain-height scan. Flat ground
+  keeps that sensor too, so the observation width matches the rough scenes.
+  """
+  scenes = {
+    "flat": walter_fs_flat_env_cfg,
+    "rough": walter_fs_rough_env_cfg,
+    "rough-test": walter_fs_rough_test_env_cfg,
+    "stairs": walter_fs_stairs_env_cfg,
+  }
+  cfg = scenes[task](play=play)
+  _configure_simple_commands(cfg)
+  _configure_simple_rewards(cfg)
+  _add_terrain_scan_observation(cfg)
+  # Imported inside the function. The PD env module imports this one.
+  from walter_rl.control.full_body_pd.env import _add_waist_lock
+  from walter_rl.control.full_body_pd.gains import default_gains
+
+  _add_waist_lock(cfg, default_gains())
+  _track_spawn_heading(cfg)
+  _pin_hard_inverted_stairs(cfg)
+  return cfg
+
+
+def _track_spawn_heading(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Promote terrain only for travel along the spawn yaw."""
+  term = cfg.curriculum.get("terrain_levels")
+  if term is None:
+    return
+  term.func = terrain_levels_along_spawn
+
+
+def _pin_hard_inverted_stairs(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Keep 80% of inverted-stair environments on the hardest row."""
+  term = cfg.curriculum.get("terrain_levels")
+  if term is None:
+    return
+  term.func = wrap_terrain_levels(term.func)
+
+
+def walter_fs_teacher_env_cfg(
+  play: bool = False,
+  task: RlSceneName = "flat",
+) -> ManagerBasedRlEnvCfg:
+  """Velocity task on ``task`` terrain, matching a scan-conditioned PD target.
+
+  On a flat scan the stored teacher action is the reactive PD. When the
+  match gate is off, that action is the same PD command with tumble forced
+  on. ``track_teacher`` matches it at ``TRACK_TEACHER_WEIGHT`` either way.
+  ``predictive_knee_tumble`` still pays for knee rate when a step is ahead.
+  ``knee_stuck_tumble`` remains the lag recovery signal.
+  """
+  cfg = walter_fs_rl_env_cfg(play=play, task=task)
+  cfg.rewards["track_teacher"] = RewardTermCfg(
+    func=gated_track_teacher_action,
+    weight=TRACK_TEACHER_WEIGHT,
+    params={"std": TRACK_TEACHER_STD, "sensor_name": "terrain_scan"},
+  )
+  cfg.rewards["predictive_knee_tumble"] = RewardTermCfg(
+    func=predictive_knee_tumble,
+    weight=PREDICTIVE_KNEE_TUMBLE_WEIGHT,
+    params={
+      "command_name": "twist",
+      "asset_cfg": SceneEntityCfg("robot", joint_names=_KNEE_JOINTS),
+      "sensor_name": "terrain_scan",
+    },
+  )
+  cfg.metrics["teacher_action_mse"] = MetricsTermCfg(func=teacher_action_mse)
+  cfg.metrics["spawn_heading_error"] = MetricsTermCfg(
+    func=spawn_heading_error,
+    params={"asset_cfg": SceneEntityCfg("robot")},
+  )
+  return cfg
+
+
+_TERRAIN_SCAN_SIZE = (2.4, 1.2)
+_TERRAIN_SCAN_RESOLUTION = 0.1
+_TERRAIN_SCAN_OFFSET = (0.4, 0.0)
+_TERRAIN_SCAN_MAX_DISTANCE = 5.0
+
+
+def _add_terrain_scan_observation(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Put the torso terrain-height grid in the actor and the critic.
+
+  Flat scenes drop the scan because the PD task never reads it. The policy
+  needs the same grid on every scene, placed just before the knee encoding.
+  """
+  _ensure_terrain_scan_sensor(cfg)
+  for group_name in ("actor", "critic"):
+    _install_height_scan(cfg, group_name)
+
+
+def _ensure_terrain_scan_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Restore the torso scan when a flat scene has removed it."""
+  sensors = list(cfg.scene.sensors or ())
+  if any(sensor.name == "terrain_scan" for sensor in sensors):
+    return
+  sensors.append(_terrain_scan_sensor())
+  cfg.scene.sensors = tuple(sensors)
+
+
+def _install_height_scan(cfg: ManagerBasedRlEnvCfg, group_name: str) -> None:
+  """Insert ``height_scan`` immediately before ``knee_sincos``."""
+  terms = cfg.observations[group_name].terms
+  existing = terms.pop("height_scan", None)
+  knee = terms.pop("knee_sincos", None)
+  terms["height_scan"] = existing if existing is not None else _height_scan_term(
+    noisy=group_name == "actor"
+  )
+  if knee is not None:
+    terms["knee_sincos"] = knee
+
+
+def _height_scan_term(*, noisy: bool) -> ObservationTermCfg:
+  """Terrain height above each ray, scaled by the scan's max distance."""
+  return ObservationTermCfg(
+    func=finite_height_scan,
+    params={"sensor_name": "terrain_scan"},
+    noise=Unoise(n_min=-0.1, n_max=0.1) if noisy else None,
+    scale=1.0 / _TERRAIN_SCAN_MAX_DISTANCE,
+  )
+
+
+def _terrain_scan_sensor() -> RayCastSensorCfg:
+  """Torso grid looking 1.6 m ahead and 0.8 m behind."""
+  return RayCastSensorCfg(
+    name="terrain_scan",
+    frame=ObjRef(type="body", name="torso", entity="robot"),
+    ray_alignment="yaw",
+    pattern=GridPatternCfg(
+      size=_TERRAIN_SCAN_SIZE,
+      resolution=_TERRAIN_SCAN_RESOLUTION,
+      offset=_TERRAIN_SCAN_OFFSET,
+    ),
+    max_distance=_TERRAIN_SCAN_MAX_DISTANCE,
+    exclude_parent_body=True,
+    include_geom_groups=(0,),
+    debug_vis=True,
+    debug_vis_enabled=False,
+  )
+
+
+# Cube root of a unit uniform draw. Its mean is 3/4, so forward speed
+# averages 0.25 + 0.75 = 1 m/s.
+_TRAIN_LIN_VEL_X = (0.25, 1.25)
+_TRAIN_LIN_VEL_X_POWER = 1.0 / 3.0
+# Yaw stays at zero. A sampled yaw rate pays the policy for turning off stairs.
+_TRAIN_ANG_VEL_Z = (0.0, 0.0)
+_TRAIN_ZERO_YAW_PROB = 1.0
+_TRAIN_STANDING_PROB = 0.05
+
+
+def _configure_simple_commands(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Sample body-frame forward speed. Yaw rate is always zero.
+
+  Forward speed is drawn from 0.25–1.25 m/s with a cube-root bias, so the
+  average draw is 1 m/s. Five percent of resamples are a full stop. A nonzero
+  yaw command would reward turning off the stairs, so it is not sampled.
+  """
+  twist = cfg.commands["twist"]
+  assert isinstance(twist, UniformVelocityCommandCfg)
+  twist.heading_command = False
+  twist.rel_standing_envs = _TRAIN_STANDING_PROB
+  twist.rel_heading_envs = 0.0
+  twist.rel_forward_envs = 0.0
+  twist.rel_world_envs = 0.0
+  twist.rel_max_ride_height_envs = 0.0
+  twist.lin_vel_x_power = _TRAIN_LIN_VEL_X_POWER
+  twist.zero_ang_vel_prob = _TRAIN_ZERO_YAW_PROB
+  twist.ranges.lin_vel_x = _TRAIN_LIN_VEL_X
+  twist.ranges.lin_vel_y = (0.0, 0.0)
+  twist.ranges.ang_vel_z = _TRAIN_ANG_VEL_Z
+  twist.ranges.heading = None
+  twist.ranges.ride_height = None
+  cfg.curriculum.pop("command_vel", None)
+
+
+def _configure_simple_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Track speed along the spawn yaw, and pay for a tumble while stuck."""
+  cfg.rewards = {
+    "track_linear_velocity": RewardTermCfg(
+      func=TrackLatchedForward,
+      weight=FORWARD_TRACK_WEIGHT,
+      params={
+        "command_name": "twist",
+        "std": _LIN_VEL_STD,
+        "asset_cfg": SceneEntityCfg("robot"),
+      },
+    ),
+    "hold_spawn_heading": RewardTermCfg(
+      func=hold_spawn_heading,
+      weight=HEADING_HOLD_WEIGHT,
+      params={"std": HEADING_HOLD_STD, "asset_cfg": SceneEntityCfg("robot")},
+    ),
+    "track_angular_velocity": RewardTermCfg(
+      func=mdp.track_angular_velocity,
+      weight=YAW_TRACK_WEIGHT,
+      params={"command_name": "twist", "std": _ANG_VEL_STD},
+    ),
+    "upright": RewardTermCfg(
+      func=mdp.upright,
+      weight=UPRIGHT_WEIGHT,
+      params={
+        "std": math.sqrt(0.2),
+        "asset_cfg": SceneEntityCfg("robot", body_names=("torso",)),
+      },
+    ),
+    "action_rate_l2": RewardTermCfg(
+      func=mdp.action_rate_l2,
+      weight=ACTION_RATE_WEIGHT,
+    ),
+    "head_level": RewardTermCfg(
+      func=head_level,
+      weight=HEAD_LEVEL_WEIGHT,
+      params={"asset_cfg": SceneEntityCfg("robot", joint_names=("head_joint",))},
+    ),
+    "wheel_wheel_collision": RewardTermCfg(
+      func=wheel_wheel_collision,
+      weight=WHEEL_COLLISION_WEIGHT,
+    ),
+    "knee_stuck_tumble": RewardTermCfg(
+      func=KneeStuckTumble,
+      weight=KNEE_STUCK_TUMBLE_WEIGHT,
+      params={
+        "command_name": "twist",
+        "asset_cfg": SceneEntityCfg("robot", joint_names=_KNEE_JOINTS),
+      },
+    ),
+  }
+
+
 def _configure_sim(cfg: ManagerBasedRlEnvCfg) -> None:
   """Give the wheel contacts a bit more solver budget than the factory default."""
   cfg.sim.mujoco.ccd_iterations = 100
@@ -233,9 +516,9 @@ def _point_terrain_scan_at_torso(cfg: ManagerBasedRlEnvCfg) -> None:
     # Rear edge stays at -0.8 m. The extra length and a forward shift look
     # out to 1.6 m in front of the torso.
     sensor.pattern = GridPatternCfg(
-      size=(2.4, 1.2),
-      resolution=0.1,
-      offset=(0.4, 0.0),
+      size=_TERRAIN_SCAN_SIZE,
+      resolution=_TERRAIN_SCAN_RESOLUTION,
+      offset=_TERRAIN_SCAN_OFFSET,
     )
 
 
@@ -404,7 +687,7 @@ def _configure_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
   )
   cfg.rewards["wheel_wheel_collision"] = RewardTermCfg(
     func=wheel_wheel_collision,
-    weight=-1.0,
+    weight=WHEEL_COLLISION_WEIGHT,
   )
   # Oriented, terrain+command gated tumble. Prefer front-down (+qdot when
   # driving forward). Penalize reverse tumble; waste only on the flat column.
@@ -462,11 +745,17 @@ def _configure_terminations(cfg: ManagerBasedRlEnvCfg) -> None:
   )
 
 
-def _swap_noise_for_random_grid(cfg: ManagerBasedRlEnvCfg) -> None:
-  """Replace the uniform-noise column with a difficulty-scaled random grid.
+# Four fifths of the preset cube-field height is the hard row. Easier rows
+# keep the same linear ramp, so they land at 0, 1/3, and 2/3 of that cap.
+_CUBE_FIELD_HEIGHT_SCALE = 4.0 / 5.0
 
-  Cell height interpolates ``grid_height_range`` by row difficulty, so the
-  column grows from flat at the easy end to the full height at the hard end.
+
+def _swap_noise_for_random_grid(cfg: ManagerBasedRlEnvCfg) -> None:
+  """Replace the uniform-noise column with a difficulty-scaled cube field.
+
+  Cell height interpolates ``grid_height_range`` by row difficulty. The hard
+  row stops at four fifths of the preset height, and the easier rows scale
+  by the same factor.
   """
   assert cfg.scene.terrain is not None
   generator = cfg.scene.terrain.terrain_generator
@@ -476,7 +765,12 @@ def _swap_noise_for_random_grid(cfg: ManagerBasedRlEnvCfg) -> None:
     if name != "random_rough":
       replaced[name] = sub
       continue
-    replaced["random_grid"] = box_random_grid(proportion=sub.proportion)
+    grid = box_random_grid(proportion=sub.proportion)
+    low, high = grid.grid_height_range
+    replaced["random_grid"] = replace(
+      grid,
+      grid_height_range=(low, low + (high - low) * _CUBE_FIELD_HEIGHT_SCALE),
+    )
   generator.sub_terrains = replaced
 
 

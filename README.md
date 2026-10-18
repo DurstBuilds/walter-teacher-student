@@ -82,7 +82,7 @@ In the Viser **Twist** folder:
 
 1. Check **Enable** so the sliders override the sampled velocity command.
 2. Set **lin_vel_x** for forward speed and **ang_vel_z** for yaw rate. Lateral speed is locked at zero.
-3. Leave **Tank Mode** checked to apply **hip_angle** and **knee_angle**. Unchecked, both commands are zero and the sliders keep their values. **hip_angle** is degrees; positive points the front hips forward and the rear hips backward. **Flip front hip** reverses the front hip and front knee zeros (like Tank Mode for the rear knee). **knee_angle** is degrees and shifts the knee zero; positive lowers the front inner wheels. With Tank Mode on, the rear zero moves the other way, so positive raises the rear inner wheels. The knee servo uses `tank_actuator_kp` and `tank_actuator_kd` while the box is checked.
+3. Check **Tank Mode** to apply **hip_angle** and **knee_angle**. It starts unchecked. Unchecked, both commands are zero and the sliders keep their values. **hip_angle** is degrees; positive points the front hips forward and the rear hips backward. **Flip front hip** reverses the front hip and front knee zeros (like Tank Mode for the rear knee). **knee_angle** is degrees and shifts the knee zero; positive lowers the front inner wheels. With Tank Mode on, the rear zero moves the other way, so positive raises the rear inner wheels. The knee servo uses `tank_actuator_kp` and `tank_actuator_kd` while the box is checked.
 4. Leave **Tumbling** checked so the stall integral runs. The motors tab shows **lin vel integral (m)**. Unchecked, the integral is cleared and the knees stay on the roll pose.
 5. Leave **Orientation** checked to level pitch and roll. Unchecked, those errors are treated as zero.
 6. **Rated torque cap** and **Rated speed cap** hold the DC motors on the continuous ratings. Both start unchecked, so the peak torque envelope and the no-load speed corner stay in use.
@@ -119,7 +119,7 @@ There is no `.env` file. Behavior comes from CLI flags, `gains.py`, and two envi
 | --- | --- |
 | `flat` | Infinite plane. Terrain height scans are removed. |
 | `rough` | mjlab velocity mix with WaLTER caps: pyramid slopes up to 0.45, waves up to 0.12 m, stairs up to 0.12 m. |
-| `rough-test` | Same mix on every third difficulty row (0, 3, 6, 9), with stair step heights scaled by 1.5. The uniform-noise column is a random grid whose cell height grows from 0 to 0.3 m along the row. |
+| `rough-test` | Same mix on every third difficulty row (0, 3, 6, 9), with stair step heights scaled by 1.5. The uniform-noise column is a random grid of cubes whose cell height grows from 0 to 0.24 m along the row (four fifths of the 0.3 m preset). |
 | `stairs` | Flat (15%) plus pyramid and inverse-pyramid stairs (6–18 cm). The curriculum holds an environment on the hardest row after it clears it. |
 
 Play mode (`play=True`, which the script always sets) uses a very long episode, disables observation noise and pushes, and turns the terrain curriculum off for the run.
