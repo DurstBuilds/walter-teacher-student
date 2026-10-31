@@ -9,6 +9,7 @@ from mjlab.envs import ManagerBasedRlEnv
 
 from walter_rl.rl.ppo import STATE_MACHINE_ACTOR_HIDDEN, STATE_MACHINE_CRITIC_HIDDEN
 from walter_rl.rl.state_machine_env import _MAX_TANK_HIP_DEG
+from walter_rl.rl.teacher_env import POLICY_ACTION_DIM
 
 
 class CheckpointPolicy:
@@ -33,13 +34,10 @@ class CheckpointPolicy:
     """No recurrent state to clear."""
 
   def control_errors(self, env_idx: int) -> tuple[tuple[str, float, float], ...]:
-    """Tumble toggle and tank hip offset applied on ``env_idx``.
-
-    The toggle is clipped to ±1. Positive requests tumble. The off dwell
-    stores the negative of the network value, and that locked number is
-    what this reports. The hip bar is the applied offset in degrees.
-    Full scale is 30 degrees, which is action 1.
-    """
+    """Policy outputs for the Viser motors overlay."""
+    action = _policy_action(self._env)
+    if action is not None and action.shape[-1] == POLICY_ACTION_DIM:
+      return _teacher_control_errors(self._env, env_idx, action)
     return (
       ("tumble decision", _tumble_decision(self._env, env_idx), 1.0),
       ("tank hip (deg)", _tank_hip_deg(self._env, env_idx), _MAX_TANK_HIP_DEG),
@@ -64,6 +62,23 @@ def _tank_hip_deg(env: ManagerBasedRlEnv | None, env_idx: int) -> float:
   if action is None or action.shape[-1] < 2:
     return 0.0
   return float(action[env_idx, 1].detach().cpu()) * _MAX_TANK_HIP_DEG
+
+
+def _teacher_control_errors(
+  env: ManagerBasedRlEnv | None,
+  env_idx: int,
+  action: torch.Tensor,
+) -> tuple[tuple[str, float, float], ...]:
+  """Drive state and whether knee spin mode is active."""
+  drive = float(action[env_idx, 12].detach().cpu())
+  applied = getattr(env.unwrapped if env is not None else None, "_tumble_applied", None)
+  spin = 0.0
+  if isinstance(applied, torch.Tensor):
+    spin = float(applied[env_idx].detach().cpu())
+  return (
+    ("drive state", drive, 1.0),
+    ("knee spin mode", spin, 1.0),
+  )
 
 
 def _policy_action(env: ManagerBasedRlEnv | None) -> torch.Tensor | None:

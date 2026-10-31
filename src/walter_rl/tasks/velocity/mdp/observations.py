@@ -10,6 +10,7 @@ from mjlab.envs.mdp.observations import builtin_sensor, height_scan, joint_vel_r
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 
 from walter_rl.assets.motor_models import get_motor
+from walter_rl.assets.walter_fs.walter_constants import continuous_effort_limit
 
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 _HIP_RATED_TORQUE_NM = get_motor("ak70_10_kv100").rated_torque_nm
@@ -94,6 +95,71 @@ def joint_pos_sincos(
     posinf=0.0,
     neginf=0.0,
   )
+
+
+_JOINT_TORQUE_PATTERNS = (r".*_hip", r".*_knee")
+_WHEEL_TORQUE_PATTERNS = (r".*_axle\d",)
+
+
+def joint_torques(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Hip and knee torque divided by each joint's continuous rating.
+
+  Order is every hip, then every knee, following the robot's joint order
+  inside each group. A motor at its continuous rating reads about ±1.
+  """
+  return _normalized_joint_torque(env, asset_cfg, _JOINT_TORQUE_PATTERNS)
+
+
+def wheel_torques(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Wheel torque divided by each axle's continuous rating.
+
+  Order follows the robot's axle joints. A motor at its continuous rating
+  reads about ±1.
+  """
+  return _normalized_joint_torque(env, asset_cfg, _WHEEL_TORQUE_PATTERNS)
+
+
+def _normalized_joint_torque(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg,
+  patterns: tuple[str, ...],
+) -> torch.Tensor:
+  """Joint-space actuator torque over the continuous joint rating."""
+  asset: Entity = env.scene[asset_cfg.name]
+  joint_ids, names = asset.find_joints(patterns, preserve_order=True)
+  torque = asset.data.qfrc_actuator[:, joint_ids]
+  scale = _continuous_joint_scale(env, names, torque)
+  return torch.nan_to_num(torque / scale, nan=0.0, posinf=1.0, neginf=-1.0)
+
+
+def _continuous_joint_scale(
+  env: ManagerBasedRlEnv,
+  names: list[str],
+  torque: torch.Tensor,
+) -> torch.Tensor:
+  """Continuous joint rating for ``names``, cached on the environment."""
+  key = "_joint_torque_obs_scale_" + ",".join(names)
+  scale = getattr(env, key, None)
+  if isinstance(scale, torch.Tensor) and scale.shape[-1] == torque.shape[-1]:
+    return scale
+  values = [_continuous_joint_rating(name) for name in names]
+  scale = torch.tensor(values, device=torque.device, dtype=torque.dtype)
+  setattr(env, key, scale)
+  return scale
+
+
+def _continuous_joint_rating(name: str) -> float:
+  """Datasheet continuous torque at the joint, including the external gear."""
+  rating = continuous_effort_limit((name,))
+  if rating is None or rating <= 0.0:
+    raise ValueError(f"No continuous joint torque rating for {name!r}.")
+  return rating
 
 
 def motor_torques(

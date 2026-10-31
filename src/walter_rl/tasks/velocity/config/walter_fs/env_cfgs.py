@@ -47,6 +47,8 @@ from walter_rl.assets.walter_fs.walter_constants import (
 from walter_rl.tasks.velocity.mdp import (
   climb_vz,
   drive_forward,
+  drive_state_outside_band,
+  drive_state_rate_l2,
   finite_builtin_sensor,
   finite_height_scan,
   finite_joint_pos_rel,
@@ -54,6 +56,7 @@ from walter_rl.tasks.velocity.mdp import (
   finite_projected_gravity,
   KneeStuckTumble,
   track_body_forward,
+  reverse_drive,
   stuck_x_velocity,
   track_yaw_rate,
   gated_track_teacher_action,
@@ -67,7 +70,8 @@ from walter_rl.tasks.velocity.mdp import (
   knee_tumble,
   knee_tumble_reverse,
   knee_waste,
-  motor_torques,
+  joint_torques,
+  wheel_torques,
   non_finite_root,
   tumble_applied,
   policy_action_rate_l2,
@@ -221,18 +225,23 @@ def walter_fs_stairs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 FORWARD_TRACK_WEIGHT = 2.0  # Drive at the commanded speed along body x.
 HEADING_HOLD_WEIGHT = 0.0  # Stay pointed the way it spawned, except while tumbling.
 YAW_TRACK_WEIGHT = 1.0  # Match the commanded turn rate.
-UPRIGHT_WEIGHT = 0.1  # Keep the torso upright.
-ACTION_RATE_WEIGHT = -0.5  # Penalize changes in the tumble toggle and tank hip.
-HEAD_LEVEL_WEIGHT = 0.0  # Penalize the head rolling off level.
-WHEEL_COLLISION_WEIGHT = 0.0  # Penalize wheels touching each other.
+UPRIGHT_WEIGHT = 0.2  # Keep the torso upright.
+ACTION_RATE_WEIGHT = -1  # Penalize changes in the tumble toggle and tank hip.
+HEAD_LEVEL_WEIGHT = -0.01  # Penalize the head rolling off level.
+WHEEL_COLLISION_WEIGHT = -1.0  # One count per touching wheel pair.
 LIMB_TORQUE_PENALTY_WEIGHT = -0.005  # Penalize hip and knee torque relative to rated torque.
 KNEE_STUCK_TUMBLE_WEIGHT = 0.0  # Pay for knee spin while falling behind the speed command.
-TRACK_TEACHER_WEIGHT = 0.0  # Match the PD teacher's joint command.
+TRACK_TEACHER_WEIGHT = 1  # Match the PD teacher; kernel in [0, 1], so peak is 0.5.
 PREDICTIVE_KNEE_TUMBLE_WEIGHT = 2.0  # Pay for knee spin when an upward step is still ahead.
 # Per radian of nose-down pitch while tumbling toward a drop. A 12 cm stair
 # is about 22 deg, so this is about -2.3/s and outweighs the tumble bonus.
 DOWNHILL_TUMBLE_WEIGHT = -6.0
 STUCK_SPEED_WEIGHT = -1.0  # Penalize body-x speed near zero while commanded forward.
+# Squared backward speed (m/s)^2 while commanded forward. At 1 m/s this is
+# -5/s, more than the forward-tracking peak, so a stair backup does not pay.
+REVERSE_DRIVE_WEIGHT = -5.0
+DRIVE_STATE_RATE_WEIGHT = -0.05  # Squared change of the raw drive_state sample.
+DRIVE_STATE_BAND_WEIGHT = -0.2  # Squared amount raw drive_state sits outside ±0.5.
 
 # State-machine table at a 10 Hz policy step. The constants above stay on the
 # teacher and the 50 Hz tasks. Action rate is smaller because the step is 5x longer.
@@ -324,6 +333,17 @@ def _configure_rough_test_curriculum(cfg: ManagerBasedRlEnvCfg) -> None:
   )
 
 
+def _configure_state_machine_rough_scene(
+  cfg: ManagerBasedRlEnvCfg,
+  *,
+  play: bool,
+) -> None:
+  """Rough training mix and fixed-column traversal curriculum."""
+  _configure_rough_training_terrain(cfg)
+  if not play:
+    _configure_traversal_curriculum(cfg)
+
+
 def _track_spawn_heading(cfg: ManagerBasedRlEnvCfg) -> None:
   """Promote terrain only for travel along the spawn yaw."""
   term = cfg.curriculum.get("terrain_levels")
@@ -346,20 +366,25 @@ def walter_fs_teacher_env_cfg(
 ) -> ManagerBasedRlEnvCfg:
   """Velocity task on ``task`` terrain, matching a scan-conditioned PD target.
 
-  Observations and the policy MLP match the state-machine stack: front and
-  rear height grids, the same proprioception, and the tumble bit over
-  0.5 s. The student outputs a 17-D action: hips, wheels, drive_state, and
-  knee positions. The env decodes that into the 16-D plant command.
+  Actor and critic see the same terms as the state-machine policy: front and
+  rear height grids, proprioception, the twist command, and the applied
+  tumble bit over 0.5 s. Neither sees the privileged critic extras. The
+  previous-action term is the 17-D student command. The env decodes that
+  into the 16-D plant command.
 
   On a flat scan the stored teacher action is the reactive PD. When the
   match gate is off, that action is the same PD command with tumble forced
   on. ``track_teacher`` matches it at ``TRACK_TEACHER_WEIGHT`` either way.
   ``predictive_knee_tumble`` still pays for knee rate when an upward step is ahead.
-  ``knee_stuck_tumble`` remains the lag recovery signal.
+  ``knee_stuck_tumble`` remains the lag recovery signal.   ``drive_state_rate_l2``
+  and ``drive_state_outside_band`` charge the raw sample so a tumble can leave
+  the wheeled band and stay there. ``reverse_drive`` charges backward body
+  speed while the command is forward.
   """
   cfg = walter_fs_rl_env_cfg(play=play, task=task)
+  if task == "rough":
+    _configure_state_machine_rough_scene(cfg, play=play)
   _install_split_scans(cfg)
-  _install_footprint_scan(cfg)
   _configure_teacher_observations(cfg)
   cfg.rewards["track_teacher"] = RewardTermCfg(
     func=gated_track_teacher_action,
@@ -372,6 +397,22 @@ def walter_fs_teacher_env_cfg(
     params={
       "command_name": "twist",
       "asset_cfg": SceneEntityCfg("robot", joint_names=_KNEE_JOINTS),
+    },
+  )
+  cfg.rewards["drive_state_rate_l2"] = RewardTermCfg(
+    func=drive_state_rate_l2,
+    weight=DRIVE_STATE_RATE_WEIGHT,
+  )
+  cfg.rewards["drive_state_outside_band"] = RewardTermCfg(
+    func=drive_state_outside_band,
+    weight=DRIVE_STATE_BAND_WEIGHT,
+  )
+  cfg.rewards["reverse_drive"] = RewardTermCfg(
+    func=reverse_drive,
+    weight=REVERSE_DRIVE_WEIGHT,
+    params={
+      "command_name": "twist",
+      "asset_cfg": SceneEntityCfg("robot"),
     },
   )
   cfg.metrics["teacher_action_mse"] = MetricsTermCfg(func=teacher_action_mse)
@@ -389,7 +430,7 @@ def walter_fs_state_machine_env_cfg(
   """PD inner loop with a learned tumble toggle and tank hip offset.
 
   Actor and critic see the head and torso height grids, projected gravity,
-  rated motor torques, the twist command, and the applied tumble mode over
+  hip and knee torque, wheel torque, the twist command, and the applied tumble mode over
   the last 0.5 s. The policy action is two numbers: the tumble toggle and
   a hip offset from 0 to 30 degrees. Tank Mode stays on and the tank knee
   command stays at zero. PD still writes the 16 joint targets. The
@@ -399,10 +440,7 @@ def walter_fs_state_machine_env_cfg(
   # Set before observations so tumble memory counts policy steps, not PD ticks.
   cfg.decimation = _POLICY_DECIMATION
   if task == "rough":
-    # After the shared rough scene. rough-test scales that scene by 1.5.
-    _configure_rough_training_terrain(cfg)
-    if not play:
-      _configure_traversal_curriculum(cfg)
+    _configure_state_machine_rough_scene(cfg, play=play)
   _configure_state_machine_contact(cfg)
   _install_footprint_scan(cfg)
   _configure_state_machine_observations(cfg)
@@ -415,10 +453,9 @@ _HIP_JOINTS = (r".*_hip",)
 
 
 def _configure_teacher_observations(cfg: ManagerBasedRlEnvCfg) -> None:
-  """Split height grids and proprioception aligned with the state machine."""
+  """State-machine policy terms for both networks. No privileged critic."""
   cfg.observations["actor"].terms = _teacher_terms(cfg, noisy=True)
   cfg.observations["critic"].terms = _teacher_terms(cfg, noisy=False)
-  cfg.observations["critic"].terms.update(_privileged_terms())
 
 
 def _teacher_terms(
@@ -426,11 +463,15 @@ def _teacher_terms(
   *,
   noisy: bool,
 ) -> dict[str, ObservationTermCfg]:
-  """Shared actor and critic terms for the 17-D teacher student."""
+  """State-machine policy terms, with the 17-D student action in place of the 2-D one."""
   terms = _state_machine_terms(cfg, noisy=noisy)
-  terms.pop("last_policy_action")
-  terms["actions"] = ObservationTermCfg(func=teacher_policy_action)
-  return terms
+  ordered: dict[str, ObservationTermCfg] = {}
+  for name, term in terms.items():
+    if name == "last_policy_action":
+      ordered["actions"] = ObservationTermCfg(func=teacher_policy_action)
+      continue
+    ordered[name] = term
+  return ordered
 
 
 def _configure_state_machine_observations(cfg: ManagerBasedRlEnvCfg) -> None:
@@ -440,7 +481,8 @@ def _configure_state_machine_observations(cfg: ManagerBasedRlEnvCfg) -> None:
   Each is 1 m by 1 m with an 8×8 grid, so each field has 64 rays.
   The near edge sits 0.1 m outside that body's box. Tumble memory is the
   applied mode, oldest to newest, over the same 0.5 s the latch stays on.
-  The actor adds the gyro, hip angles, knee sin/cos, and the last policy action.
+  The actor adds the gyro, hip angles, knee sin/cos, joint and wheel
+  torques, and the last policy action.
   The critic sees those without noise, plus body velocity, joint rates, the
   footprint profile, the terrain row, and the latch timers.
   """
@@ -466,8 +508,12 @@ def _state_machine_terms(
       func=joint_pos_sincos,
       params={"asset_cfg": SceneEntityCfg("robot", joint_names=_KNEE_JOINTS)},
     ),
-    "motor_torques": ObservationTermCfg(
-      func=motor_torques,
+    "joint_torques": ObservationTermCfg(
+      func=joint_torques,
+      params={"asset_cfg": SceneEntityCfg("robot")},
+    ),
+    "wheel_torques": ObservationTermCfg(
+      func=wheel_torques,
       params={"asset_cfg": SceneEntityCfg("robot")},
     ),
     "command": ObservationTermCfg(
@@ -1157,8 +1203,9 @@ def _configure_terminations(cfg: ManagerBasedRlEnvCfg) -> None:
   )
 
 
-# Hard row of the state-machine rough task. rough-test tops out at 0.18 m.
-_ROUGH_TRAIN_STAIR_HEIGHT = (0.0, 0.22)
+# Rough training stairs. Row 0 is 6 cm and row 9 is 22 cm. The generator
+# interpolates the rows between. rough-test tops out at 0.18 m.
+_ROUGH_TRAIN_STAIR_HEIGHT = (0.06, 0.22)
 # One column per type. Proportions only set how many robots spawn there.
 _ROUGH_TRAIN_PROPORTIONS = {
   "pyramid_stairs_inv": 0.30,
@@ -1182,8 +1229,9 @@ _CUBE_APPROACH_BORDER_M = 1.5
 def _configure_rough_training_terrain(cfg: ManagerBasedRlEnvCfg) -> None:
   """Raise rough stairs past rough-test and add a cube column.
 
-  The shared rough scene stays at 0.12 m stairs. rough-test multiplies those
-  by 1.5, so writing 0.22 m there would push the benchmark to 0.33 m.
+  Stair height is 6 cm on row 0 and 22 cm on row 9. The shared rough scene
+  stays at 0.12 m stairs. rough-test multiplies those by 1.5, so writing
+  0.22 m there would push the benchmark to 0.33 m.
   """
   assert cfg.scene.terrain is not None
   generator = cfg.scene.terrain.terrain_generator

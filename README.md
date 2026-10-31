@@ -14,9 +14,9 @@ Playback covers the classical PD controller, the smooth-tumble variant, and a st
 ## Key Features
 
 - State-machine PPO at 10 Hz: tumble toggle plus 0–30° tank hip, Beta actor on `[-1, 1]`, actor MLP 256/128/64, critic MLP 512/256/128. The PD controller still writes the 16 joint targets each physics substep.
-- Front and rear height grids (1 m × 1 m, 64 rays each), IMU terms, knee encoding, motor torques, the twist command, last policy action, and 0.5 s of applied tumble memory.
+- Front and rear height grids (1 m × 1 m, 64 rays each), IMU terms, knee encoding, hip and knee torque, wheel torque, the twist command, last policy action, and 0.5 s of applied tumble memory.
 - State-machine rewards (`SM_*` in `env_cfgs.py`): forward tracking (1.0), forward progress (2.0), yaw tracking (1.0), climb tumble (1.5), unneeded tumble (−1.0), downhill tumble (−6.0 per radian nose-down while latched), uprightness (0.1), action rate (−0.1), torso contact (−2.0), limb torque (−0.005), stuck speed (−0.5).
-- Optional 17-D teacher-student run (`--teacher`) at 50 Hz with the same scan layout and MLP widths (Gaussian actor). The match reward weight is currently 0, so that term is registered and skipped.
+- Optional 17-D teacher-student run (`--teacher`) at 50 Hz with the same scan layout and MLP widths (Gaussian actor). PD action matching uses `TRACK_TEACHER_WEIGHT = 0.5` (peak contribution 0.5, below forward plus yaw tracking at 3.0).
 - Classical full-body PD and a smooth-tumble variant that holds hip height level while the knees spin.
 - Four scenes: `flat`, `rough`, `rough-test`, and `stairs`.
 - rsl-rl 5.4 `OnPolicyRunner`, TensorBoard logs under `logs/rsl_rl/`, and a localhost panel for one play or train job.
@@ -76,7 +76,7 @@ uv run python scripts/play.py --policy pd --task flat
 uv run python scripts/play_pd.py --task flat
 ```
 
-`scripts/play_pd.py` is the same PD scene. `scripts/play.py` also loads a state-machine checkpoint:
+`scripts/play_pd.py` is the same PD scene. `scripts/play.py` also loads a trained checkpoint (state machine or teacher; teacher paths under `walter_fs_teacher` are detected automatically):
 
 ```bash
 uv run python scripts/play.py --policy checkpoint --task rough-test \
@@ -184,7 +184,7 @@ There is no `.env` file. Behavior comes from CLI flags, `gains.py`, and two envi
 | Task | Scene |
 | --- | --- |
 | `flat` | Infinite plane. The PD task drops terrain height scans. Training puts a scan back so the observation width matches the other scenes. The state machine then replaces that scan with the front and rear grids. |
-| `rough` | State-machine training grid. Stairs run from 0 to 0.22 m over 10 rows. Slopes stay at 0.45 and waves at 0.12 m. A cube column uses the rough-test height cap, a 2 m center platform, and a 1 m apron. `random_rough` scales with the row. Robots spawn at the tile center and keep their column. A row promotes when the root reaches the exit radius, and demotes on a fall, a hard belly hit, or a long episode that never leaves the inner half of that radius. The top row re-rolls. The teacher `rough` task keeps the shared 0.12 m stairs. |
+| `rough` | Training grid for state machine and teacher. Stairs run from 0.06 m to 0.22 m over 10 rows. Slopes stay at 0.45 and waves at 0.12 m. A cube column uses the rough-test height cap, a 2 m center platform, and a 1 m apron. `random_rough` scales with the row. Robots spawn at the tile center and keep their column. A row promotes when the root reaches the exit radius, and demotes on a fall, a hard belly hit, or a long episode that never leaves the inner half of that radius. The top row re-rolls. |
 | `rough-test` | The shared rough mix on every third difficulty row, with stair step heights scaled by 1.5 (hard row 0.18 m). The uniform-noise column is a random grid of cubes. It is the evaluation grid, not the state-machine training grid. Training on it still starts on row 0. A finished or failed climb returns to the column the environment was born on. |
 | `stairs` | Flat (15%) plus pyramid and inverse-pyramid stairs (6–18 cm). The teacher and the 50 Hz tasks promote along the spawn yaw, and 80% of inverse-stair environments stay on the hardest row. |
 
@@ -221,7 +221,8 @@ The actor sees:
 - `base_ang_vel`, the IMU gyro (noise ±0.2)
 - `hip_pos`, biased hip encoders
 - `knee_sincos`
-- `motor_torques`, actuator force divided by rated torque
+- `joint_torques`, hip and knee torque divided by each joint's continuous rating
+- `wheel_torques`, axle torque divided by each wheel's continuous rating
 - `command`, the twist
 - `last_policy_action`, the latched toggle and the mapped hip
 - `tumble_applied`, the applied bit over the last 0.5 s, oldest first
@@ -234,7 +235,7 @@ Reward weights are the constants at the top of `src/walter_rl/tasks/velocity/con
 
 `TeacherStudentEnv` snapshots `FullBodyPdController.act()` before physics. On a closed forward-scan match gate the stored target is that reactive action. On an open gate the stored target is the same command with tumble forced on. Training steps the student action. `follow_teacher` steps the stored target instead, which is how `eval_cells.py` plays the PD teacher.
 
-`track_teacher` is an exponential match of that stored action. Its weight, `TRACK_TEACHER_WEIGHT`, is `0.0`, so the reward manager skips it. `--teacher-only-reward` zeros every other term and leaves this one at 0.
+`track_teacher` is an exponential match of that stored action at weight `0.5` (kernel in `[0, 1]`). `--teacher-only-reward` zeros every other term and leaves this one active.
 
 ### Controller gains
 
@@ -325,7 +326,7 @@ gen0WaLTER/
 - **`pyproject.toml`** — Package `walter_rl` 0.1.0. Depends on the local `mjlab` checkout, `rsl-rl-lib` 5.4.2, TensorBoard, and `tensordict`.
 - **`uv.lock`** — Locked dependency graph, including PyTorch, MuJoCo, Warp, Viser, and rsl-rl.
 - **`scripts/train.py`** — PPO entry point. Default env is `StateMachineEnv`. `--teacher` selects `TeacherStudentEnv`.
-- **`scripts/play.py`** — PD playback, or a state-machine checkpoint in Viser or the native viewer.
+- **`scripts/play.py`** — PD playback, or a state-machine or teacher checkpoint in Viser or the native viewer.
 - **`scripts/play_pd.py`** — PD playback only.
 - **`scripts/play_smooth_tumble.py`** — Smooth-tumble playback. Hips cancel the knee's ride-height change while tumbling.
 - **`scripts/panel.py`** — Browser panel. Play choices are classical PD, smooth tumble, and a checkpoint. Train choices include the teacher flags and a resume path under `logs/rsl_rl`.
@@ -384,8 +385,8 @@ There is no database and no separate compile step. For a headless PD check that 
 
 This repository has no `tests/` directory and no pytest dependency. Two scripts check pieces of the teacher path by running them:
 
-- `uv run python scripts/check_teacher_reward.py` expects the match term to prefer the teacher action. The reward manager skips the term while `TRACK_TEACHER_WEIGHT` is `0.0`, so the recorded rate stays 0. The script then divides that rate by the same weight and raises `ZeroDivisionError`.
-- `uv run python scripts/eval_cells.py` writes a clip for one rough-test cell. It builds `TeacherStudentEnv`, so a state-machine checkpoint (2-D action, Beta actor) does not load there. `scripts/play.py --policy checkpoint` is the state-machine player and uses `state_machine_ppo_runner_cfg`.
+- `uv run python scripts/check_teacher_reward.py` checks that the match term prefers the teacher action over zeros and that `TRACK_TEACHER_WEIGHT` stays below forward plus yaw tracking.
+- `uv run python scripts/eval_cells.py` writes a clip for one rough-test cell. State-machine and teacher checkpoints are not interchangeable between `play.py` and `eval_cells.py` without matching the env each script builds.
 - `uv run python scripts/eval_state_machine.py --controller oracle --mode probe` rolls the scripted climber on the top inverted-stair row and compares its return with always-drive and always-tumble. `--mode table` scores every cell of `--task`.
 
 ## Contributing & Future Work
@@ -399,8 +400,8 @@ There is no `CONTRIBUTING` guide. A practical change is a focused edit plus a pl
 
 Limits visible from the current tree:
 
-- `TRACK_TEACHER_WEIGHT` is 0, so teacher matching is configured and then skipped. Turning it back on is an edit in `env_cfgs.py`. The state-machine reward table still names `sensor_name="terrain_scan"` for that term; the match function ignores the argument, and the state machine has already replaced that sensor with the front and rear grids.
-- `scripts/play.py` plays state-machine checkpoints. Teacher checkpoints belong in `eval_cells.py`.
+- Teacher matching and wheel-pair collision weights live with the other `FORWARD_*` constants in `env_cfgs.py`. The state-machine reward table still names `sensor_name="terrain_scan"` for `track_teacher`; the match function ignores the argument.
+- `scripts/play.py --policy checkpoint` loads state-machine or teacher weights from the checkpoint path (`walter_fs_teacher` selects the 17-D stack).
 - `src/walter_rl/tasks/__init__.py` and `src/walter_rl/control/__init__.py` still describe a PD-only package. Training imports the PD controller from `walter_rl.rl`.
 - The root `pyproject.toml` description still says the package is full-body PD playback.
 - `RL Manual.md` is a second manual and still describes the 16-D student as the default, with a teacher match weight of 0.5. This README is the one that matches the code.

@@ -35,17 +35,26 @@ def track_teacher_action(env: ManagerBasedRlEnv, std: float) -> torch.Tensor:
   """Reward copying the teacher action recorded from the pre-step state.
 
   The kernel is in ``[0, 1]``. On a flat scan that action is the reactive
-  PD. On a step it is the same PD action with tumble forced on.
+  PD. On a step it is the same PD action with tumble forced on. Knee
+  position error is the shortest angle. While that target is a tumble, the
+  knee columns compare rate in rad/s instead.
   """
-  student = env.action_manager.action
-  error = torch.mean(torch.square(student - _teacher_action(env)), dim=-1)
+  error = _teacher_squared_error(env)
   return torch.exp(-error / std**2)
 
 
 def teacher_action_mse(env: ManagerBasedRlEnv) -> torch.Tensor:
   """Mean squared gap between the student action and the PD teacher."""
+  return _teacher_squared_error(env)
+
+
+def _teacher_squared_error(env: ManagerBasedRlEnv) -> torch.Tensor:
+  """Mean squared match error, including the env's knee comparison."""
   student = env.action_manager.action
-  return torch.mean(torch.square(student - _teacher_action(env)), dim=-1)
+  teacher = _teacher_action(env)
+  delta_fn = getattr(env, "teacher_match_delta", None)
+  delta = delta_fn(student, teacher) if callable(delta_fn) else student - teacher
+  return torch.mean(torch.square(delta), dim=-1)
 
 
 def _teacher_action(env: ManagerBasedRlEnv) -> torch.Tensor:
@@ -185,6 +194,76 @@ def policy_action_rate_l2(env: ManagerBasedRlEnv) -> torch.Tensor:
   if not isinstance(action, torch.Tensor) or not isinstance(previous, torch.Tensor):
     return torch.zeros(env.num_envs, device=env.device)
   return torch.sum(torch.square(action - previous), dim=1)
+
+
+def drive_state_rate_l2(env: ManagerBasedRlEnv) -> torch.Tensor:
+  """Squared change of the raw ``drive_state`` sample.
+
+  The first step after reset costs nothing. A later all-zero action is a
+  real sample, so the next change is still charged. The sample is the
+  policy column, before the knee-speed clamp.
+  """
+  zeros = torch.zeros(env.num_envs, device=env.device)
+  action, previous = _policy_action_pair(env)
+  if action is None or previous is None:
+    return zeros
+  column, _, width = _drive_state_layout()
+  if not _is_policy_width(action, width) or not _is_policy_width(previous, width):
+    return zeros
+  delta = torch.square(action[:, column] - previous[:, column])
+  fresh = getattr(env, "_drive_rate_fresh", None)
+  if not isinstance(fresh, torch.Tensor) or fresh.shape[0] != env.num_envs:
+    return delta
+  delta = torch.where(fresh, torch.zeros_like(delta), delta)
+  fresh[:] = False
+  return delta
+
+
+def drive_state_outside_band(env: ManagerBasedRlEnv) -> torch.Tensor:
+  """Squared distance of the raw ``drive_state`` sample outside the drive band."""
+  zeros = torch.zeros(env.num_envs, device=env.device)
+  action = getattr(env, "policy_action", None)
+  if not isinstance(action, torch.Tensor):
+    return zeros
+  column, threshold, width = _drive_state_layout()
+  if not _is_policy_width(action, width):
+    return zeros
+  excess = torch.relu(action[:, column].abs() - threshold)
+  return torch.square(excess)
+
+
+def _policy_action_pair(
+  env: ManagerBasedRlEnv,
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+  """Current and previous policy actions, or None when either is missing."""
+  action = getattr(env, "policy_action", None)
+  previous = getattr(env, "prev_policy_action", None)
+  if not isinstance(action, torch.Tensor) or not isinstance(previous, torch.Tensor):
+    return None, None
+  return action, previous
+
+
+def _is_policy_width(action: torch.Tensor, width: int) -> bool:
+  """True when ``action`` is a batch of policy vectors of ``width``."""
+  return action.ndim == 2 and action.shape[-1] == width
+
+
+def _drive_state_layout() -> tuple[int, float, int]:
+  """Column, band edge, and policy width from the teacher env.
+
+  Imported at call time. The teacher env imports this module while it is
+  still loading, so a module-level import would cycle. The literals apply
+  only when that import fails.
+  """
+  try:
+    from walter_rl.rl.teacher_env import (
+      DRIVE_STATE_COLUMN,
+      DRIVE_STATE_THRESHOLD,
+      POLICY_ACTION_DIM,
+    )
+  except ImportError:
+    return 12, 0.5, 17
+  return DRIVE_STATE_COLUMN, float(DRIVE_STATE_THRESHOLD), POLICY_ACTION_DIM
 
 
 def predictive_knee_tumble(
@@ -842,6 +921,26 @@ def track_body_forward(
   assert command is not None, f"Command '{command_name}' not found."
   error = torch.square(command[:, 0] - asset.data.root_link_lin_vel_b[:, 0])
   return torch.exp(-error / std**2)
+
+
+def reverse_drive(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Squared backward body-x speed while the command points forward.
+
+  A requested stop returns 0. Forward motion returns 0. The square keeps a
+  small rock cheap and a fast reverse, the stair backup exploit, large.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  backward = torch.relu(-asset.data.root_link_lin_vel_b[:, 0])
+  commanded_forward = command[:, 0] > 0.0
+  return torch.where(
+    commanded_forward, backward.square(), torch.zeros_like(backward)
+  )
 
 
 def stuck_x_velocity(

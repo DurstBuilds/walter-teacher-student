@@ -3,7 +3,9 @@
 Examples:
   python scripts/play.py --policy pd --task flat
   python scripts/play.py --policy checkpoint --task rough-test \\
-    --checkpoint logs/rsl_rl/.../model_600.pt
+    --checkpoint logs/rsl_rl/walter_fs_state_machine_rough-test/.../model_600.pt
+  python scripts/play.py --policy checkpoint --task rough-test \\
+    --checkpoint logs/rsl_rl/walter_fs_teacher_rough-test/.../model_600.pt
 """
 
 from __future__ import annotations
@@ -20,12 +22,15 @@ from mjlab.viewer import NativeMujocoViewer
 from walter_rl.assets.payloads import available_payloads
 from walter_rl.control.full_body_pd.env import TaskName, make_pd_env
 from walter_rl.control.full_body_pd.policy import FullBodyPdPolicy
+from walter_rl.rl.checkpoint_kind import is_teacher_checkpoint
 from walter_rl.rl.checkpoint_policy import CheckpointPolicy
-from walter_rl.rl.ppo import state_machine_ppo_runner_cfg
+from walter_rl.rl.ppo import state_machine_ppo_runner_cfg, teacher_ppo_runner_cfg
 from walter_rl.rl.state_machine_env import StateMachineEnv
-from walter_rl.rl.vecenv import StateMachineVecEnv
+from walter_rl.rl.teacher_env import TeacherStudentEnv
+from walter_rl.rl.vecenv import StateMachineVecEnv, TeacherStudentVecEnv
 from walter_rl.tasks.velocity.config.walter_fs.env_cfgs import (
   walter_fs_state_machine_env_cfg,
+  walter_fs_teacher_env_cfg,
 )
 from walter_rl.viewer import WalterViserPlayViewer
 
@@ -69,16 +74,27 @@ def _checkpoint_policy(
   checkpoint = Path(args.checkpoint)
   if not checkpoint.is_file():
     raise SystemExit(f"Checkpoint not found: {checkpoint}")
+  teacher = args.teacher or is_teacher_checkpoint(checkpoint)
   device = "cuda:0" if torch.cuda.is_available() else "cpu"
-  cfg = walter_fs_state_machine_env_cfg(play=True, task=args.task)
-  cfg.scene.num_envs = args.num_envs
-  env = StateMachineEnv(cfg, device=device)
-  agent_cfg = state_machine_ppo_runner_cfg(
-    max_iterations=1,
-    experiment_name="walter_fs_play",
-    clip_actions=_STATE_MACHINE_CLIP,
-  )
-  wrapped = StateMachineVecEnv(env, clip_actions=agent_cfg["clip_actions"])
+  if teacher:
+    cfg = walter_fs_teacher_env_cfg(play=True, task=args.task)
+    cfg.scene.num_envs = args.num_envs
+    env = TeacherStudentEnv(cfg, device=device)
+    agent_cfg = teacher_ppo_runner_cfg(
+      max_iterations=1,
+      experiment_name="walter_fs_play",
+    )
+    wrapped = TeacherStudentVecEnv(env, clip_actions=agent_cfg["clip_actions"])
+  else:
+    cfg = walter_fs_state_machine_env_cfg(play=True, task=args.task)
+    cfg.scene.num_envs = args.num_envs
+    env = StateMachineEnv(cfg, device=device)
+    agent_cfg = state_machine_ppo_runner_cfg(
+      max_iterations=1,
+      experiment_name="walter_fs_play",
+      clip_actions=_STATE_MACHINE_CLIP,
+    )
+    wrapped = StateMachineVecEnv(env, clip_actions=agent_cfg["clip_actions"])
   runner = OnPolicyRunner(wrapped, agent_cfg, log_dir=None, device=device)
   runner.load(str(checkpoint))
   model = runner.get_inference_policy(device=device)
@@ -89,6 +105,12 @@ def _parse_args() -> argparse.Namespace:
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--policy", choices=("pd", "checkpoint"), default="pd")
   parser.add_argument("--checkpoint", type=str, default=None)
+  parser.add_argument(
+    "--teacher",
+    action="store_true",
+    help="Load a 17-D teacher checkpoint. Auto-detected when the path "
+    "contains walter_fs_teacher.",
+  )
   parser.add_argument(
     "--task",
     choices=_TASKS,

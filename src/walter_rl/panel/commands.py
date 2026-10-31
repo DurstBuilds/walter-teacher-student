@@ -8,6 +8,7 @@ from pathlib import Path
 
 from walter_rl.assets.payloads import available_payloads
 from walter_rl.panel.paths import is_checkpoint_path
+from walter_rl.rl.checkpoint_kind import is_teacher_checkpoint
 
 _TASKS = ("flat", "rough", "rough-test", "stairs")
 _POLICIES = ("pd", "smooth-tumble", "checkpoint")
@@ -100,6 +101,8 @@ def _play_script_command(
   if policy == "checkpoint":
     checkpoint = checkpoint_file(root, body.get("checkpoint"))
     command.extend(["--checkpoint", str(checkpoint)])
+    if is_teacher_checkpoint(checkpoint):
+      command.append("--teacher")
     return command
   _append_payload(command, body)
   return command
